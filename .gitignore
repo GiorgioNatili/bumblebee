@@ -1,4 +1,13 @@
+# Compiled Go binary
 /bumblebee
+!/bumblebee/
+
+# Python bytecode and build artifacts
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
 *.test
 *.out
 *.ndjson
