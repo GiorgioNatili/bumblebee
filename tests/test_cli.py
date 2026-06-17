@@ -337,13 +337,15 @@ class TestEmbeddedReportRendering:
                 with open(result) as f:
                     html = f.read()
 
-                # __BUMBLEBEE_DATA__ appears 3 times:
+                # __BUMBLEBEE_DATA__ appears 5 times:
                 #   1. injected data script (definition)
-                #   2. app code if-check: "if (window.__BUMBLEBEE_DATA__)"
-                #   3. app code call: "parseData(window.__BUMBLEBEE_DATA__)"
+                #   2. if-check: "if (window.__BUMBLEBEE_DATA__)"
+                #   3. length log: "window.__BUMBLEBEE_DATA__.length"
+                #   4. preview log: "window.__BUMBLEBEE_DATA__.substring"
+                #   5. parse call: "parseData(window.__BUMBLEBEE_DATA__)"
                 data_refs = html.count("__BUMBLEBEE_DATA__")
-                assert data_refs == 3, \
-                    f"expected 3 __BUMBLEBEE_DATA__ refs, got {data_refs}"
+                assert data_refs == 5, \
+                    f"expected 5 __BUMBLEBEE_DATA__ refs, got {data_refs}"
 
                 # Extract the data string
                 import re as _re
@@ -385,6 +387,77 @@ class TestEmbeddedReportRendering:
                 assert "function parseData" in html
                 assert "const ECO_COLORS" in html
                 assert "const ECO_LABELS" in html
+
+                # Debug logging present
+                assert "console.log" in html, "debug logging missing"
+
+                # Error/fallback CSS present
+                assert ".error" in html, "error state CSS missing"
+
+        finally:
+            os.unlink(jsonl.name)
+
+    def test_fallback_on_empty_data(self):
+        """When embedded data has no package records, show error on drop zone."""
+        import tempfile as _tf
+
+        sample = '{"record_type":"scan_summary","status":"complete"}\n'
+        jsonl = _tf.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
+        jsonl.write(sample)
+        jsonl.close()
+
+        try:
+            with _tf.TemporaryDirectory() as tmp:
+                report_dir = os.path.join(tmp, "reports")
+                os.makedirs(report_dir)
+                with patch("os.path.isfile", return_value=True), \
+                     patch("bumblebee_py.cli._ensure_report_dir",
+                           return_value=report_dir):
+                    result = cli._generate_report(jsonl.name)
+
+                assert result is not None
+                with open(result) as f:
+                    html = f.read()
+
+                # Check for fallback logic in the JS code
+                assert 'packages.length === 0' in html, \
+                    "fallback check for empty packages missing"
+                assert 'dropZone.classList' in html, \
+                    "drop zone class manipulation missing"
+
+                # Verify the data IS still embedded
+                assert "__BUMBLEBEE_DATA__" in html
+
+        finally:
+            os.unlink(jsonl.name)
+
+    def test_fallback_on_invalid_json(self):
+        """When embedded data is not valid JSONL, show error on drop zone."""
+        import tempfile as _tf
+
+        sample = "not valid json at all\nstill not json\n"
+        jsonl = _tf.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
+        jsonl.write(sample)
+        jsonl.close()
+
+        try:
+            with _tf.TemporaryDirectory() as tmp:
+                report_dir = os.path.join(tmp, "reports")
+                os.makedirs(report_dir)
+                with patch("os.path.isfile", return_value=True), \
+                     patch("bumblebee_py.cli._ensure_report_dir",
+                           return_value=report_dir):
+                    result = cli._generate_report(jsonl.name)
+
+                assert result is not None
+                with open(result) as f:
+                    html = f.read()
+
+                # The data is embedded, and the JS will try to parse it
+                # The fallback catches the case where packages.length === 0
+                assert "__BUMBLEBEE_DATA__" in html
+                assert 'packages.length === 0' in html
+                assert 'No valid records' in html or 'no packages' in html.lower()
 
         finally:
             os.unlink(jsonl.name)

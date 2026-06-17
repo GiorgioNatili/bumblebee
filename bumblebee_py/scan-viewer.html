@@ -51,6 +51,7 @@
   }
   .drop-zone svg { width: 48px; height: 48px; stroke: var(--text-dim); margin-bottom: 12px; }
   .drop-zone.loaded { border-color: var(--green); background: rgba(52,211,153,0.08); display: none; }
+  .drop-zone.error { border-color: var(--red); background: rgba(248,113,113,0.08); display: block; }
   .drop-zone input { display: none; }
 
   /* Layout */
@@ -308,6 +309,10 @@ const ECO_LABELS = {
 
 // Auto-load embedded data (injected by bumblebee --view)
 if (window.__BUMBLEBEE_DATA__) {
+  const len = window.__BUMBLEBEE_DATA__.length;
+  const preview = window.__BUMBLEBEE_DATA__.substring(0, 120).replace(/\n/g, '\\n');
+  console.log(`[bumblebee] embedded data: ${len.toLocaleString()} chars`);
+  console.log(`[bumblebee] preview: ${preview}...`);
   parseData(window.__BUMBLEBEE_DATA__);
 }
 
@@ -337,14 +342,35 @@ function parseData(text) {
   allRecords = [];
   packages = [];
   summary = null;
+  let parseErrors = 0;
+  let totalLines = 0;
   for (const line of text.split('\n').filter(Boolean)) {
+    totalLines++;
     try {
       const r = JSON.parse(line);
       allRecords.push(r);
       if (r.record_type === 'package') packages.push(r);
       else if (r.record_type === 'scan_summary') summary = r;
-    } catch (_) {}
+    } catch (_) {
+      parseErrors++;
+    }
   }
+  console.log(`[bumblebee] lines: ${totalLines}, packages: ${packages.length}, errors: ${parseErrors}`);
+  if (summary) {
+    console.log(`[bumblebee] scan: ${summary.profile} profile, ${summary.status}, ${summary.package_records_emitted} records`);
+  }
+
+  if (packages.length === 0) {
+    dropZone.classList.remove('loaded');
+    dropZone.classList.add('error');
+    dropZone.querySelector('p').textContent = allRecords.length === 0
+      ? '⚠ No valid records found in embedded data'
+      : `⚠ Embedded data contained ${allRecords.length} non-package records but no packages`;
+    document.getElementById('dashboard').classList.remove('show');
+    return;
+  }
+
+  dropZone.classList.remove('error');
   dropZone.classList.add('loaded');
   dropZone.querySelector('p').textContent = `Loaded: ${packages.length.toLocaleString()} package records, ${allRecords.length - packages.length - 1} diagnostics`;
   document.getElementById('dashboard').classList.add('show');

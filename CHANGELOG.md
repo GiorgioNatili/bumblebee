@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.5 (2026-06-17)
+
+### Added
+
+- **Debug logging** — The HTML dashboard now logs embedded data size, line
+  count, package count, parse errors, and scan summary to the browser
+  console (`console.log` with `[bumblebee]` prefix).
+- **Fallback state** — If embedded data contains no package records (or is
+  completely invalid), the dashboard shows a red-bordered drop-zone with
+  an error message instead of a blank dashboard.
+
 ## 0.2.4 (2026-06-17)
 
 ### Fixed
