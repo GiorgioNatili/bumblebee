@@ -13,7 +13,9 @@ import os
 import secrets
 import signal
 import sys
+import tempfile
 import time
+import webbrowser
 from typing import Optional
 
 from bumblebee import model
@@ -128,6 +130,25 @@ def _run_scan(args: list[str]) -> int:
     if err:
         print(err, file=sys.stderr)
         return 2
+
+    # Capture output for --view
+    _view_data_file = None
+    if opts.view:
+        if opts.output == "http":
+            print("--view is not compatible with --output=http", file=sys.stderr)
+            return 2
+        if opts.output == "stdout":
+            _view_data_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".jsonl", delete=False, prefix="bumblebee_")
+            records_w = _view_data_file
+            close_fn_orig = close_fn
+            def _close_view():
+                if close_fn_orig:
+                    close_fn_orig()
+                _view_data_file.close()
+            close_fn = _close_view
+        else:
+            _view_data_file = opts.output_file
 
     run_id = secrets.token_hex(16)
     emitter = Emitter(records_w, sys.stderr, run_id)
@@ -252,7 +273,61 @@ def _run_scan(args: list[str]) -> int:
                  f"timed_out={res.timed_out} "
                  f"duration={res.duration:.2f}s")
 
+    # Open the dashboard viewer in the browser
+    if opts.view and _view_data_file:
+        _open_viewer(_view_data_file)
+
     return exit_code
+
+
+def _open_viewer(data_file):
+    """Generate a self-contained HTML dashboard and open it in the browser."""
+    import json
+
+    # Locate the viewer template
+    viewer_path = os.path.join(os.path.dirname(__file__), "..", "tools", "scan-viewer.html")
+    if not os.path.isfile(viewer_path):
+        print(f"dashboard template not found at {viewer_path}", file=sys.stderr)
+        return
+
+    # Read the JSONL data
+    if isinstance(data_file, str):
+        data_path = data_file
+    else:
+        data_path = data_file.name
+
+    try:
+        with open(data_path) as f:
+            jsonl_data = f.read()
+    except OSError as e:
+        print(f"read scan data for viewer: {e}", file=sys.stderr)
+        return
+
+    # Read the viewer template
+    try:
+        with open(viewer_path) as f:
+            html = f.read()
+    except OSError as e:
+        print(f"read viewer template: {e}", file=sys.stderr)
+        return
+
+    # Embed the JSONL data as a JS string literal (using json.dumps for safe escaping)
+    data_script = f"<script>window.__BUMBLEBEE_DATA__ = {json.dumps(jsonl_data)};</script>"
+
+    # Insert the data script right before the first <script> tag (after <head>)
+    html = html.replace("<script>", data_script + "\n<script>", 1)
+
+    # Write to a temp HTML file
+    try:
+        out_fd, out_path = tempfile.mkstemp(suffix=".html", prefix="bumblebee_")
+        with os.fdopen(out_fd, "w") as f:
+            f.write(html)
+    except OSError as e:
+        print(f"write viewer: {e}", file=sys.stderr)
+        return
+
+    print(f"📊 Dashboard opened: {out_path}", file=sys.stderr)
+    webbrowser.open(f"file://{os.path.abspath(out_path)}")
 
 
 def _run_roots(args: list[str]) -> int:
@@ -333,6 +408,9 @@ def _add_scan_flags(parser: argparse.ArgumentParser):
 
     parser.add_argument("--device-id-env", default="",
                         help="env var holding a stable device/endpoint id")
+
+    parser.add_argument("--view", action="store_true", default=False,
+                        help="open the dashboard in a browser after the scan")
 
 
 def _parse_ecosystem_filter(values: list[str]) -> tuple[Optional[set[str]], Optional[str]]:

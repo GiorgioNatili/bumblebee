@@ -280,6 +280,11 @@ let sortCol = null;
 let sortDir = 1;
 let ecosystemFilter = null;
 
+// Auto-load embedded data (injected by bumblebee --view)
+if (window.__BUMBLEBEE_DATA__) {
+  parseData(window.__BUMBLEBEE_DATA__);
+}
+
 const ECO_COLORS = {
   npm: '#ef4444',
   homebrew: '#fbbf24',
@@ -340,6 +345,8 @@ function parseData(text) {
       else if (r.record_type === 'scan_summary') summary = r;
     } catch (_) {}
   }
+  dropZone.classList.add('loaded');
+  dropZone.querySelector('p').textContent = `Loaded: ${packages.length.toLocaleString()} package records, ${allRecords.length - packages.length - 1} diagnostics`;
   document.getElementById('dashboard').classList.add('show');
   buildDashboard();
 }
