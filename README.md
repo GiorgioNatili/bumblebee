@@ -175,10 +175,11 @@ bumblebee scan --profile baseline --view
 
 # Or generate a dashboard from saved output.
 bumblebee scan --profile baseline > inventory.jsonl
-# Then open tools/scan-viewer.html in your browser and drag inventory.jsonl onto it.
+# Then open the dashboard (bundled with the package) in your browser and drag inventory.jsonl onto it.
 ```
 
-The dashboard is a single static file at [`tools/scan-viewer.html`](tools/scan-viewer.html).
+The dashboard is bundled with the package at
+[`bumblebee/scan-viewer.html`](bumblebee/scan-viewer.html).
 No server, no network, no dependencies.
 
 ### Self-test

@@ -10,7 +10,7 @@
   ```sh
   bumblebee scan --profile baseline --view
   ```
-- **Browser dashboard (`tools/scan-viewer.html`)** — A single HTML file that
+- **Browser dashboard** (`bumblebee/scan-viewer.html`) — A single HTML file that
   renders NDJSON scan output. Can be used standalone (drag-drop a `.jsonl`
   file) or auto-launched via `--view`.
 
