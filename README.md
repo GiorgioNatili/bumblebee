@@ -165,22 +165,72 @@ See [CHANGELOG](CHANGELOG.md) for version history.
 
 ### Browser dashboard
 
-Scan results can be viewed in a browser dashboard — a self-contained HTML
-file with summary cards, ecosystem and confidence pie charts, and a
-searchable/sortable table:
+Scan results can be viewed in an interactive browser dashboard — a
+self-contained HTML file with summary cards, ecosystem and confidence pie
+charts, a searchable/filterable package table, expandable detail rows,
+and an optional raw-data view.
 
 ```sh
 # Run a scan and open the dashboard automatically.
 bumblebee scan --profile baseline --view
+```
 
-# Or generate a dashboard from saved output.
+#### Data flow
+
+```
+scan output
+→ NDJSON/JSONL records
+→ embedded as window.bumblebee_data in HTML
+→ parsed by scan-viewer.html (loadScanData → parseScanData → renderDashboard)
+→ rendered as an interactive dashboard
+```
+
+The dashboard opens automatically when `--view` is passed. The scan data
+is embedded directly into the HTML file — no server, no network, no
+additional files needed.
+
+#### Dashboard UI
+
+| Component | Description |
+|---|---|
+| **Summary cards** | Total packages, largest ecosystem, high/medium/low confidence counts, direct dependencies, packages with lifecycle scripts |
+| **Ecosystem chart** | Doughnut chart showing package distribution by ecosystem |
+| **Confidence chart** | Doughnut chart showing confidence-level breakdown |
+| **Ecosystem tabs** | Filter the package table to a single ecosystem |
+| **Search box** | Filter packages by name, version, or source path |
+| **Package table** | Sortable columns (ecosystem, package name, version, confidence, source type, path) |
+| **Expandable details** | Click ▶ on any row to reveal: record ID, source file, package manager, root kind, install scope, direct dependency flag, lifecycle scripts |
+| **Raw data view** | Hidden by default; click "Show" to see the full embedded NDJSON |
+
+#### Manual loading (fallback)
+
+If you saved scan output to a file, you can load it manually:
+
+```sh
+# Save scan output to a file.
 bumblebee scan --profile baseline > inventory.jsonl
-# Then open the dashboard (bundled with the package) in your browser and drag inventory.jsonl onto it.
+
+# Open the dashboard (bundled with the package) in your browser,
+# then drag inventory.jsonl onto the drop zone.
 ```
 
 The dashboard is bundled with the package at
 [`bumblebee_py/scan-viewer.html`](bumblebee_py/scan-viewer.html).
-No server, no network, no dependencies.
+
+#### Troubleshooting
+
+| Symptom | Likely cause | What to check |
+|---|---|---|
+| Dashboard is blank | Embedded data missing or empty | Run with `--view` so data is injected automatically |
+| Dashboard shows "could not be parsed" | The embedded data is not valid NDJSON/JSON | Check the debug panel (shown above the dashboard) for parse errors |
+| Dashboard shows "no packages found" | Data contains non-package records only | The data may contain only diagnostic or summary records |
+| Charts don't render | Chart.js CDN blocked (offline) | Table, tabs, and raw data still work — charts are non-critical |
+| Drag-and-drop doesn't load | File is not `.jsonl` / `.ndjson` / `.json` | The file picker accepts these extensions |
+| Debug panel shows errors | See browser console for details | Open DevTools (F12) → Console for full error logs |
+
+Self-contained: the dashboard requires no network once the HTML is
+generated (Chart.js loads from CDN when first opened, but the table
+and summary cards work offline).
 
 ### Self-test
 
@@ -247,9 +297,9 @@ optional for the other profiles. `--ecosystem` is repeatable and
 comma-separated. `--exposure-catalog` accepts a JSON file or a directory
 of `*.json` catalogs (merged non-recursively, all files must share
 `schema_version`). `--findings-only` requires `--exposure-catalog` and
-suppresses package records while keeping findings. `--view` opens a
-browser dashboard showing summary cards, charts, and a searchable table
-of all discovered packages. `bumblebee scan --help`
+suppresses package records while keeping findings. `--view` runs the
+scan, captures the output, embeds it into a self-contained HTML dashboard,
+and opens it in your browser. `bumblebee scan --help`
 lists every flag.
 
 ## Output

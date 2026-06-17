@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.6 (2026-06-17)
+
+### Added
+
+- **Browser dashboard section in README** — Full usage instructions for
+  `bumblebee scan --profile baseline --view`, data flow documentation,
+  dashboard UI description (summary cards, package table, filtering,
+  expandable details, raw-data view), manual `.jsonl` loading fallback,
+  and troubleshooting guidance.
+
+### Fixed
+
+- **Embedded dashboard rendering** — Refactored the HTML viewer into a
+  clean `loadScanData()` → `parseScanData()` → `renderDashboard()`
+  pipeline. Each rendering step is wrapped in try-catch so Chart.js
+  failures no longer block the table or summary cards.
+- **In-page debug panel** — Visible status messages show data type,
+  length, record count, package count, render status, and errors.
+- **Multi-format input** — `window.bumblebee_data` now supports NDJSON
+  string, JSON string, JavaScript array, and JavaScript object formats.
+- **Fallback states** — Clear messages for: no embedded data, data could
+  not be parsed, data parsed but no packages found, render completed.
+- **Variable rename** — `window.__BUMBLEBEE_DATA__` → `window.bumblebee_data`.
+
 ## 0.2.5 (2026-06-17)
 
 ### Added
