@@ -16,3 +16,4 @@ build/
 
 # goreleaser output
 /dist/
+reasonix.toml
