@@ -53,6 +53,8 @@ Per-ecosystem detail: [docs/inventory-sources.md](docs/inventory-sources.md).
 
 ## Install
 
+### Go (original)
+
 Requires Go 1.25+. Zero non-stdlib dependencies.
 
 ```sh
@@ -81,6 +83,40 @@ time, and Go runtime — so a record emitted in production can be traced
 back to a specific build. Version precedence: `-ldflags` override,
 module version recorded by `go install`, then the in-tree default
 tracked in `VERSION`.
+
+### Python port
+
+A pure Python 3 port lives on the [`python-port`](https://github.com/GiorgioNatili/bumblebee/tree/python-port) branch.
+Zero external dependencies — only the standard library.
+
+```sh
+# Switch to the python-port branch.
+git checkout python-port
+
+# Install the package.
+pip install .
+
+# Run.
+bumblebee scan --profile baseline
+
+# Or without installing, via the module directly.
+python3 -m bumblebee version
+
+# Run the test suite.
+python3 -m pytest tests/
+```
+
+The Python port implements the same three scan profiles, all 12 ecosystem
+scanners, the exposure-catalog matching engine, and the HTTP sink with
+bearer / HMAC-SHA256 auth — all ported directly from the Go original
+with matching stable IDs and NDJSON output schema.
+
+Key differences from the Go build:
+- Requires Python 3.10+ (tested on 3.13).
+- No `selftest` subcommand yet (the embedded Go fixtures are not bundled).
+- Concurrency uses `ThreadPoolExecutor` instead of goroutines, with
+  the same semantics (serial walk, parallel parse).
+- Version can be overridden via the `BUMBLEBEE_VERSION` env var.
 
 ### Self-test
 
