@@ -247,6 +247,9 @@
   <input type="file" id="fileInput" accept=".jsonl,.ndjson,.json">
 </div>
 
+<!-- Debug info panel (visible on the page) -->
+<div id="debugPanel" style="display:none;max-width:800px;margin:0 auto 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.75rem;color:var(--text-dim);font-family:monospace;line-height:1.6;"></div>
+
 <!-- Dashboard -->
 <div class="dashboard" id="dashboard">
   <div class="cards" id="summaryCards"></div>
@@ -302,117 +305,214 @@ let sortDir = 1;
 let ecosystemFilter = null;
 
 const ECO_COLORS = {
-  npm: '#ef4444',
-  homebrew: '#fbbf24',
-  pypi: '#60a5fa',
-  mcp: '#818cf8',
-  'browser-extension': '#f472b6',
-  rubygems: '#ef9a9a',
-  go: '#00add8',
-  packagist: '#4a5568',
-  'editor-extension': '#34d399',
+  npm: '#ef4444', homebrew: '#fbbf24', pypi: '#60a5fa',
+  mcp: '#818cf8', 'browser-extension': '#f472b6', rubygems: '#ef9a9a',
+  go: '#00add8', packagist: '#4a5568', 'editor-extension': '#34d399',
   'agent-skill': '#a78bfa',
 };
 
 const ECO_LABELS = {
-  npm: 'npm / Yarn / pnpm / Bun',
-  homebrew: 'Homebrew',
-  pypi: 'PyPI',
-  mcp: 'MCP Servers',
-  'browser-extension': 'Browser Extensions',
-  rubygems: 'RubyGems',
-  go: 'Go Modules',
-  packagist: 'Composer / Packagist',
-  'editor-extension': 'Editor Extensions',
-  'agent-skill': 'Agent Skills',
+  npm: 'npm / Yarn / pnpm / Bun', homebrew: 'Homebrew', pypi: 'PyPI',
+  mcp: 'MCP Servers', 'browser-extension': 'Browser Extensions',
+  rubygems: 'RubyGems', go: 'Go Modules', packagist: 'Composer / Packagist',
+  'editor-extension': 'Editor Extensions', 'agent-skill': 'Agent Skills',
 };
 
-// Auto-load embedded data (injected by bumblebee --view)
-if (window.bumblebee_data) {
-  console.log(`[bumblebee] embedded data detected: ${window.bumblebee_data.length} chars`);
-  console.log(`[bumblebee] preview: ${window.bumblebee_data.substring(0, 120).replace(/\n/g, '\\n')}...`);
-  parseData(window.bumblebee_data);
+// ─── debug panel ───
+function debugLog(msg, isError) {
+  const panel = document.getElementById('debugPanel');
+  if (!panel) return;
+  if (panel.style.display === 'none') panel.style.display = 'block';
+  const line = document.createElement('div');
+  line.textContent = msg;
+  if (isError) line.style.color = 'var(--red)';
+  panel.appendChild(line);
+  console.log(`[bumblebee] ${msg}`);
 }
 
-// ─── file handling ───
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
-fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
-
-function handleFile(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = e.target.result;
-    parseData(text);
-    dropZone.classList.add('loaded');
-    dropZone.querySelector('p').textContent = `Loaded: ${file.name}`;
-  };
-  reader.readAsText(file);
+function clearDebug() {
+  const panel = document.getElementById('debugPanel');
+  if (panel) { panel.innerHTML = ''; panel.style.display = 'none'; }
 }
 
-function parseData(text) {
+// ─── pipeline: loadScanData → parseScanData → renderDashboard ───
+
+function loadScanData(input) {
+  /* Detect input format and normalize to an array of record objects. */
+  clearDebug();
+  debugLog(`detecting embedded data`);
+
+  if (input === null || input === undefined || input === '') {
+    debugLog('embedded data: none (empty)', true);
+    return null;
+  }
+
+  let records;
+  const type = Array.isArray(input) ? 'array'
+    : typeof input === 'object' && input !== null ? 'object'
+    : typeof input === 'string' ? 'string' : typeof input;
+
+  debugLog(`embedded data type: ${type}, length: ${String(input).length}`);
+
+  // String: try JSONL first, then JSON.parse
+  if (type === 'string') {
+    const str = input.trim();
+    // Try NDJSON/JSONL (newline-separated JSON objects)
+    if (str.includes('\n') && str.split('\n').some(l => { try { return typeof JSON.parse(l) === 'object'; } catch(e) { return false; } })) {
+      records = str.split('\n').filter(Boolean).map(l => {
+        try { return JSON.parse(l); } catch(e) { return null; }
+      }).filter(Boolean);
+      debugLog(`parsed as NDJSON: ${records.length} records`);
+    } else {
+      // Try as a single JSON value (array or object)
+      try {
+        const parsed = JSON.parse(str);
+        records = Array.isArray(parsed) ? parsed : [parsed];
+        debugLog(`parsed as JSON: ${records.length} records`);
+      } catch(e) {
+        debugLog(`JSON parse failed: ${e.message}`, true);
+        return null;
+      }
+    }
+  } else if (type === 'array') {
+    records = input;
+    debugLog(`received as JS array: ${records.length} items`);
+  } else if (type === 'object') {
+    records = [input];
+    debugLog(`received as JS object`);
+  } else {
+    debugLog(`unsupported data type: ${type}`, true);
+    return null;
+  }
+
+  return parseScanData(records);
+}
+
+function parseScanData(records) {
+  /* Accept an array of record objects, classify into allRecords/packages/summary. */
   allRecords = [];
   packages = [];
   summary = null;
-  rawDataText = text;
   let parseErrors = 0;
-  let totalLines = 0;
-  for (const line of text.split('\n').filter(Boolean)) {
-    totalLines++;
-    try {
-      const r = JSON.parse(line);
+
+  for (const r of records) {
+    if (r && typeof r === 'object') {
       allRecords.push(r);
       if (r.record_type === 'package') packages.push(r);
       else if (r.record_type === 'scan_summary') summary = r;
-    } catch (_) {
+      else parseErrors++;
+    } else {
       parseErrors++;
     }
   }
-  console.log(`[bumblebee] lines: ${totalLines}, packages: ${packages.length}, errors: ${parseErrors}`);
-  if (summary) {
-    console.log(`[bumblebee] scan: ${summary.profile} profile, ${summary.status}, ${summary.package_records_emitted} records`);
-  }
 
+  debugLog(`parsed: ${allRecords.length} records, ${packages.length} packages, ${summary ? 'summary found' : 'no summary'}`);
+
+  if (allRecords.length === 0) {
+    debugLog('no valid records found in data', true);
+    return false;
+  }
   if (packages.length === 0) {
-    dropZone.classList.remove('loaded');
-    dropZone.classList.add('error');
-    dropZone.querySelector('p').textContent = allRecords.length === 0
-      ? '⚠ No valid records found in embedded data'
-      : `⚠ Embedded data contained ${allRecords.length} non-package records but no packages`;
-    document.getElementById('dashboard').classList.remove('show');
-    return;
+    debugLog('data has records but no package records', true);
+    return false;
   }
-
-  dropZone.classList.remove('error');
-  dropZone.classList.add('loaded');
-  dropZone.querySelector('p').textContent = `Loaded: ${packages.length.toLocaleString()} package records, ${allRecords.length - packages.length - 1} diagnostics`;
-  document.getElementById('dashboard').classList.add('show');
-  buildDashboard();
+  return true;
 }
 
-// ─── dashboard ───
-function buildDashboard() {
-  buildSummaryCards();
-  buildCharts();
-  buildTabs();
+function renderDashboard() {
+  debugLog('rendering dashboard');
+  try { buildSummaryCards(); debugLog('summary cards rendered'); } catch(e) { debugLog(`summary error: ${e.message}`, true); }
+  try { buildCharts(); debugLog('charts rendered'); } catch(e) { debugLog(`charts error: ${e.message}`, true); }
+  try { buildTabs(); debugLog('tabs rendered'); } catch(e) { debugLog(`tabs error: ${e.message}`, true); }
   ecosystemFilter = null;
   activeTab = 'all';
-  renderTable();
-  // Show raw data section with the raw JSONL text
+  try { renderTable(); debugLog('table rendered'); } catch(e) { debugLog(`table error: ${e.message}`, true); }
+  // Raw data section
   const rawSection = document.getElementById('rawDataSection');
   if (rawSection && rawDataText) {
     rawSection.style.display = 'block';
     document.getElementById('rawDataSize').textContent = `${(rawDataText.length / 1024).toFixed(1)} KB`;
     document.getElementById('rawDataContent').textContent = rawDataText;
-    console.log(`[bumblebee] render completed: ${packages.length} packages, ${allRecords.length} total records`);
   }
+  debugLog(`render completed: ${packages.length} packages, ${allRecords.length} total records`);
 }
+
+// ─── file handling (drag-and-drop) ───
+(function() {
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  if (!dropZone || !fileInput) return;
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+  });
+})();
+
+function loadFile(file) {
+  if (!file) return;
+  clearDebug();
+  debugLog(`loading file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    rawDataText = text;
+    const ok = loadScanData(text);
+    if (ok) {
+      document.getElementById('dashboard').classList.add('show');
+      const dropZone = document.getElementById('dropZone');
+      dropZone.classList.add('loaded');
+      dropZone.classList.remove('error');
+      dropZone.querySelector('p').textContent = `${file.name} — ${packages.length.toLocaleString()} packages`;
+      renderDashboard();
+    } else {
+      const dropZone = document.getElementById('dropZone');
+      dropZone.classList.add('error');
+      dropZone.classList.remove('loaded');
+      dropZone.querySelector('p').textContent =
+        allRecords.length === 0
+          ? '⚠ Could not parse file'
+          : '⚠ File has records but no packages';
+    }
+  };
+  reader.onerror = () => {
+    debugLog(`failed to read file: ${reader.error}`, true);
+    document.getElementById('dropZone').classList.add('error');
+  };
+  reader.readAsText(file);
+}
+
+// ─── auto-load ───
+(function() {
+  if (window.bumblebee_data) {
+    debugLog(`embedded data detected: ${window.bumblebee_data.length} chars`);
+    rawDataText = typeof window.bumblebee_data === 'string' ? window.bumblebee_data : JSON.stringify(window.bumblebee_data);
+    const ok = loadScanData(window.bumblebee_data);
+    if (ok) {
+      document.getElementById('dashboard').classList.add('show');
+      document.getElementById('dropZone').classList.add('loaded');
+      document.getElementById('dropZone').querySelector('p').textContent =
+        `${packages.length.toLocaleString()} package records, ${allRecords.length - packages.length - 1} diagnostics`;
+      renderDashboard();
+    } else {
+      document.getElementById('dropZone').classList.add('error');
+      document.getElementById('dropZone').querySelector('p').textContent =
+        allRecords.length === 0
+          ? '⚠ Embedded scan data could not be parsed'
+          : '⚠ Scan data parsed, but no packages were found';
+    }
+  } else {
+    debugLog('embedded data: none (drag-drop a file to load)');
+  }
+})();
 
 function buildSummaryCards() {
   const eco = {};

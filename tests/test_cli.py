@@ -266,21 +266,17 @@ class TestEmbeddedReportRendering:
                 os.path.dirname(cli.__file__), "scan-viewer.html")) as f:
             return f.read()
 
-    def test_eco_constants_before_parse_data(self):
-        """ECO_COLORS and ECO_LABELS must be defined before parseData call.
-
-        const declarations are in the temporal dead zone until the
-        declaration is reached. If parseData (which calls buildCharts,
-        which references ECO_COLORS) runs first, a ReferenceError occurs.
+    def test_eco_constants_before_autoload(self):
+        """ECO_COLORS and ECO_LABELS must be defined before the auto-load IIFE.
         """
         src = self._read_template()
         pos_colors = src.index("const ECO_COLORS")
         pos_labels = src.index("const ECO_LABELS")
-        pos_parse = src.index("parseData(window.bumblebee_data)")
-        assert pos_colors < pos_parse, \
-            "ECO_COLORS declared after parseData call — temporal dead zone crash!"
-        assert pos_labels < pos_parse, \
-            "ECO_LABELS declared after parseData call — temporal dead zone crash!"
+        pos_autoload = src.index("if (window.bumblebee_data)")
+        assert pos_colors < pos_autoload, \
+            "ECO_COLORS after auto-load — temporal dead zone crash!"
+        assert pos_labels < pos_autoload, \
+            "ECO_LABELS after auto-load — temporal dead zone crash!"
 
     def test_template_first_script_is_chartjs(self):
         """First <script> in the template is Chart.js CDN (gets replaced by injection).
@@ -297,16 +293,15 @@ class TestEmbeddedReportRendering:
             f"first <script> should be Chart.js CDN, got: {chart_js_snippet[:60]}"
 
     def test_template_second_script_contains_app_code(self):
-        """Second <script> contains the full app code with parseData."""
+        """Second <script> contains the full app code with loadScanData."""
         src = self._read_template()
         first_script = src.find("<script")
         second_script = src.find("<script", first_script + 7)
         assert second_script >= 0
-        # Find the closing </script> tag for the second script
         second_end = src.find("</script>", second_script)
         second_content = src[second_script:second_end]
-        assert "parseData" in second_content, \
-            "second <script> should contain parseData (app code)"
+        assert "loadScanData" in second_content, \
+            "second <script> should contain loadScanData (app pipeline)"
 
     def test_generated_report_round_trip(self):
         """Generate a report and validate the HTML would render in a browser."""
@@ -337,15 +332,17 @@ class TestEmbeddedReportRendering:
                 with open(result) as f:
                     html = f.read()
 
-                # bumblebee_data appears 5 times:
+                # bumblebee_data appears 7 times:
                 #   1. injected data script (definition)
                 #   2. if-check: "if (window.bumblebee_data)"
-                #   3. length log: "window.bumblebee_data.length"
-                #   4. preview log: "window.bumblebee_data.substring"
-                #   5. parse call: "parseData(window.bumblebee_data)"
+                #   3. debugLog length: "${window.bumblebee_data.length}"
+                #   4. typeof check: "typeof window.bumblebee_data"
+                #   5. rawDataText assign: "window.bumblebee_data"
+                #   6. stringify: "JSON.stringify(window.bumblebee_data)"
+                #   7. parse call: "loadScanData(window.bumblebee_data)"
                 data_refs = html.count("bumblebee_data")
-                assert data_refs == 5, \
-                    f"expected 5 bumblebee_data refs, got {data_refs}"
+                assert data_refs == 7, \
+                    f"expected 7 bumblebee_data refs, got {data_refs}"
 
                 # Extract the data string
                 import re as _re
@@ -384,12 +381,14 @@ class TestEmbeddedReportRendering:
                     "Chart.js script tag missing after injection"
 
                 # App code present
-                assert "function parseData" in html
+                assert "function loadScanData" in html
+                assert "function parseScanData" in html
+                assert "function renderDashboard" in html
                 assert "const ECO_COLORS" in html
                 assert "const ECO_LABELS" in html
 
                 # Debug logging present
-                assert "console.log" in html, "debug logging missing"
+                assert "debugLog" in html, "debugLog function missing"
 
                 # Error/fallback CSS present
                 assert ".error" in html, "error state CSS missing"
@@ -422,8 +421,8 @@ class TestEmbeddedReportRendering:
                 # Check for fallback logic in the JS code
                 assert 'packages.length === 0' in html, \
                     "fallback check for empty packages missing"
-                assert 'dropZone.classList' in html, \
-                    "drop zone class manipulation missing"
+                assert '⚠' in html, \
+                    "warning icon missing for fallback"
 
                 # Verify the data IS still embedded
                 assert "bumblebee_data" in html
@@ -454,10 +453,9 @@ class TestEmbeddedReportRendering:
                     html = f.read()
 
                 # The data is embedded, and the JS will try to parse it
-                # The fallback catches the case where packages.length === 0
                 assert "bumblebee_data" in html
-                assert 'packages.length === 0' in html
-                assert 'No valid records' in html or 'no packages' in html.lower()
+                # Fallback triggers when allRecords.length === 0
+                assert "allRecords.length === 0" in html or "not be parsed" in html
 
         finally:
             os.unlink(jsonl.name)
