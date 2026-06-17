@@ -318,7 +318,6 @@ def _generate_report(jsonl_path: str) -> Optional[str]:
 
     Returns the path to the generated HTML file, or None on failure.
     """
-    import json
 
     viewer_path = os.path.join(os.path.dirname(__file__), "scan-viewer.html")
     if not os.path.isfile(viewer_path):
@@ -341,7 +340,8 @@ def _generate_report(jsonl_path: str) -> Optional[str]:
         return None
 
     # Embed the JSONL data into the HTML
-    data_script = f"<script>window.__BUMBLEBEE_DATA__ = {json.dumps(jsonl_data)};</script>"
+    escaped = jsonl_data.replace("\\", "\\\\").replace('"', '\\"').replace("</", "<\\/")
+    data_script = f'<script>window.__BUMBLEBEE_DATA__ = "{escaped}";</script>'
     html = html.replace("<script>", data_script + "\n<script>", 1)
 
     # Write to a timestamped file in the reports directory

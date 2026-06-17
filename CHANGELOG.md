@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.4 (2026-06-17)
+
+### Fixed
+
+- **Dashboard HTML rendering was blank** — `json.dumps()` was used to embed
+  the JSONL data into the HTML, which escaped newlines as `\n` (backslash-n).
+  The JavaScript code does `text.split('\n')` looking for actual newline
+  characters (ASCII 10), so it found none and treated the entire dataset as
+  one invalid JSON line, silently discarding all records.
+  
+  **Fix:** Replaced `json.dumps()` with manual JavaScript string escaping
+  (`\"` for double quotes, `\\` for backslashes, actual newlines preserved).
+  The data is now correctly parsed as multiple JSONL lines in the browser.
+
 ## 0.2.3 (2026-06-17)
 
 ### Changed

@@ -158,12 +158,41 @@ class TestGenerateReport:
                 output_html = f.read()
             assert "__BUMBLEBEE_DATA__" in output_html
 
-            # 3. The embedded data is valid JSON containing our records
-            data_start = output_html.index("__BUMBLEBEE_DATA__ = ") \
-                         + len("__BUMBLEBEE_DATA__ = ")
-            data_end = output_html.index(";", data_start)
-            embedded = json.loads(output_html[data_start:data_end])
-            assert "npm" in embedded
+            # 3. Simulate what the browser does with the embedded JS string:
+            #    - Extract the JS string literal: window.__BUMBLEBEE_DATA__ = "...";
+            #    - Unescape JS escapes: \" becomes ", \\ becomes \
+            #    - Split by actual newlines and parse each line as JSON
+            import re as _re
+            m = _re.search(
+                r'__BUMBLEBEE_DATA__ = (.+?);</script>',
+                output_html, _re.DOTALL
+            )
+            assert m is not None, "could not find __BUMBLEBEE_DATA__ assignment"
+            js_literal = m.group(1)
+
+            # Strip outer double quotes
+            assert js_literal.startswith('"') and js_literal.endswith('"')
+            js_content = js_literal[1:-1]
+
+            # Simulate JS string unescaping: \" → ", \\ → \ (backslash)
+            js_unescaped = js_content.replace('\\"', '"')
+
+            # Split by actual newlines and parse each JSON line
+            lines = [l for l in js_unescaped.split("\n") if l.strip()]
+            records = []
+            for line in lines:
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    assert False, \
+                        f"JSON parse error on line {line[:80]!r}: {e}"
+
+            packages = [r for r in records
+                        if r.get("record_type") == "package"]
+            assert len(packages) == 2, \
+                f"expected 2 package records, got {len(packages)}"
+            assert packages[0]["ecosystem"] == "npm"
+            assert packages[0]["package_name"] == "a"
 
             # 4. Two <script> tags: injected data + original app
             assert output_html.count("<script>") == 2
