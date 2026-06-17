@@ -25,6 +25,20 @@ the entries against current advisories before production use.
 
 ## Generating catalogs from OSV
 
+**Python port (recommended):** Use the `bumblebee intel refresh` command:
+
+```bash
+bumblebee intel refresh --output threat_intel/osv-malicious.json
+```
+
+For offline use, pass a local OSV dump:
+
+```bash
+bumblebee intel refresh \
+  --source ./osv-malicious.json \
+  --output threat_intel/osv-malicious.json
+```
+
 `tools/osvcatalog` converts a local [OSV](https://osv.dev) snapshot into
 a catalog offline. Bumblebee never queries osv.dev at scan time. Only
 malicious-package records (`MAL-` ids, or records aliased to one) are

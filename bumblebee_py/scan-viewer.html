@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bumblebee Inventory Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0f1117;
@@ -200,6 +199,32 @@
   .badge-browser-extension { background: rgba(244,114,182,0.2); color: #f9a8d4; }
   .badge-rubygems { background: rgba(227,65,52,0.2); color: #ef9a9a; }
 
+  /* Bar chart (replaces Chart.js) */
+  .bar-chart { display:flex; flex-wrap:wrap; gap:8px; padding:8px 0; }
+  .bar-item { display:flex; align-items:center; gap:6px; flex:1 1 180px; }
+  .bar-label { font-size:0.72rem; color:var(--text-dim); min-width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar-track { flex:1; height:16px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; transition:width .3s; min-width:2px; }
+  .bar-value { font-size:0.72rem; color:var(--text-dim); min-width:30px; text-align:right; }
+
+  /* Finding severity badges */
+  .sev-critical { color: var(--red); }
+  .sev-high { color: var(--orange); }
+  .sev-medium { color: var(--yellow); }
+  .sev-low { color: var(--green); }
+  .badge-critical { background: rgba(248,113,113,0.2); color: #f87171; }
+  .badge-high { background: rgba(251,146,60,0.2); color: #fb923c; }
+  .badge-medium { background: rgba(251,191,36,0.2); color: #fbbf24; }
+  .badge-low { background: rgba(52,211,153,0.2); color: #34d399; }
+
+  /* Findings section */
+  .finding-row { background: rgba(248,113,113,0.03); }
+  .finding-row:hover td { background: rgba(248,113,113,0.07); }
+
+  /* No-data state */
+  .empty-state { text-align:center; padding:32px; color:var(--text-dim); }
+  .empty-state svg { width:48px; height:48px; stroke:var(--text-dim); margin-bottom:12px; opacity:0.4; }
+
   /* Tabs */
   .tabs {
     display: flex;
@@ -254,12 +279,39 @@
 <div class="dashboard" id="dashboard">
   <div class="cards" id="summaryCards"></div>
 
-  <div class="chart-row">
-    <div class="chart-box"><canvas id="ecoChart"></canvas></div>
-    <div class="chart-box"><canvas id="confChart"></canvas></div>
+  <!-- Ecosystem distribution (inline bar chart, no Chart.js) -->
+  <div class="section" id="ecoDistributionSection" style="display:none;">
+    <div class="section-header"><h2>📊 Package Distribution</h2></div>
+    <div class="bar-chart" id="ecoBarChart"></div>
   </div>
 
-  <div class="tabs" id="tabs"></div>
+  <!-- Findings section -->
+  <div class="section" id="findingsSection" style="display:none;">
+    <div class="section-header">
+      <h2>🔍 Potential Exposures <span style="font-size:0.7rem;color:var(--text-dim);font-weight:normal;">(catalog matches — package-presence evidence)</span></h2>
+      <span class="count-badge" id="findingsCount"></span>
+    </div>
+    <div class="filter-bar" id="findingsFilterBar">
+      <button class="filter-btn active" data-sev="all" onclick="filterFindings('all')">All</button>
+      <button class="filter-btn" data-sev="critical" onclick="filterFindings('critical')" style="border-color:var(--red);color:var(--red);">Critical</button>
+      <button class="filter-btn" data-sev="high" onclick="filterFindings('high')" style="border-color:var(--orange);color:var(--orange);">High</button>
+      <button class="filter-btn" data-sev="medium" onclick="filterFindings('medium')" style="border-color:var(--yellow);color:var(--yellow);">Medium</button>
+      <button class="filter-btn" data-sev="low" onclick="filterFindings('low')" style="border-color:var(--green);color:var(--green);">Low</button>
+    </div>
+    <div class="table-wrap" id="findingsTableWrap">
+      <table><thead><tr>
+        <th>Severity</th>
+        <th>Catalog ID</th>
+        <th>Catalog Name</th>
+        <th>Ecosystem</th>
+        <th>Package</th>
+        <th>Version</th>
+        <th>Evidence</th>
+        <th>Source</th>
+        <th>Confidence</th>
+      </tr></thead><tbody id="findingsBody"></tbody></table>
+    </div>
+  </div>
 
   <div class="section" id="detailSection">
     <div class="section-header">
@@ -297,6 +349,7 @@
 // ─── data ───
 let allRecords = [];
 let packages = [];
+let findings = [];
 let summary = null;
 let rawDataText = null;
 let activeTab = 'all';
@@ -389,9 +442,10 @@ function loadScanData(input) {
 }
 
 function parseScanData(records) {
-  /* Accept an array of record objects, classify into allRecords/packages/summary. */
+  /* Accept an array of record objects, classify into allRecords/packages/findings/summary. */
   allRecords = [];
   packages = [];
+  findings = [];
   summary = null;
   let parseErrors = 0;
 
@@ -399,6 +453,7 @@ function parseScanData(records) {
     if (r && typeof r === 'object') {
       allRecords.push(r);
       if (r.record_type === 'package') packages.push(r);
+      else if (r.record_type === 'finding') findings.push(r);
       else if (r.record_type === 'scan_summary') summary = r;
       else parseErrors++;
     } else {
@@ -406,7 +461,7 @@ function parseScanData(records) {
     }
   }
 
-  debugLog(`parsed: ${allRecords.length} records, ${packages.length} packages, ${summary ? 'summary found' : 'no summary'}`);
+  debugLog(`parsed: ${allRecords.length} records, ${packages.length} packages, ${findings.length} findings, ${summary ? 'summary found' : 'no summary'}`);
 
   if (allRecords.length === 0) {
     debugLog('no valid records found in data', true);
@@ -422,7 +477,8 @@ function parseScanData(records) {
 function renderDashboard() {
   debugLog('rendering dashboard');
   try { buildSummaryCards(); debugLog('summary cards rendered'); } catch(e) { debugLog(`summary error: ${e.message}`, true); }
-  try { buildCharts(); debugLog('charts rendered'); } catch(e) { debugLog(`charts error: ${e.message}`, true); }
+  try { buildEcoBars(); debugLog('eco bars rendered'); } catch(e) { debugLog(`eco bars error: ${e.message}`, true); }
+  try { renderFindings(); debugLog('findings table rendered'); } catch(e) { debugLog(`findings error: ${e.message}`, true); }
   try { buildTabs(); debugLog('tabs rendered'); } catch(e) { debugLog(`tabs error: ${e.message}`, true); }
   ecosystemFilter = null;
   activeTab = 'all';
@@ -518,13 +574,19 @@ function buildSummaryCards() {
   const eco = {};
   const conf = {};
   let direct = 0;
+  let sevCounts = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const p of packages) {
     eco[p.ecosystem] = (eco[p.ecosystem] || 0) + 1;
     conf[p.confidence] = (conf[p.confidence] || 0) + 1;
     if (p.direct_dependency) direct++;
   }
+  for (const f of findings) {
+    const sev = (f.severity || '').toLowerCase();
+    if (sev in sevCounts) sevCounts[sev]++;
+  }
 
   const cards = [
+    { value: findings.length.toLocaleString(), label: 'Potential Exposures', sub: `${sevCounts.critical} critical, ${sevCounts.high} high, ${sevCounts.medium} medium, ${sevCounts.low} low` },
     { value: packages.length.toLocaleString(), label: 'Total Packages', sub: `${Object.keys(eco).length} ecosystems` },
     { value: Object.values(eco).sort((a,b)=>b-a)[0].toLocaleString(), label: 'Largest Ecosystem', sub: Object.keys(eco).reduce((a,b)=>eco[a]>eco[b]?a:b) },
     { value: (conf.high || 0).toLocaleString(), label: 'High Confidence', sub: `${Math.round((conf.high||0)/packages.length*100)}% of total` },
@@ -538,56 +600,101 @@ function buildSummaryCards() {
   `).join('');
 }
 
-function buildCharts() {
+function buildEcoBars() {
+  /* Render inline CSS bar charts for ecosystem distribution. No Chart.js needed. */
   const ecoCounts = {};
   for (const p of packages) {
     ecoCounts[p.ecosystem] = (ecoCounts[p.ecosystem] || 0) + 1;
   }
-  const sorted = Object.entries(ecoCounts).sort((a,b)=>b[1]-a[1]);
+  const sorted = Object.entries(ecoCounts).sort((a,b) => b[1] - a[1]);
+  if (sorted.length === 0) return;
 
-  new Chart(document.getElementById('ecoChart'), {
-    type: 'doughnut',
-    data: {
-      labels: sorted.map(([k]) => ECO_LABELS[k] || k),
-      datasets: [{
-        data: sorted.map(([,v]) => v),
-        backgroundColor: sorted.map(([k]) => ECO_COLORS[k] || '#666'),
-        borderWidth: 0,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'right', labels: { color: '#8b8fa3', boxWidth: 12, padding: 8, font: { size: 11 } } },
-        title: { display: true, text: 'Packages by Ecosystem', color: '#e2e4f0', font: { size: 13 } }
-      }
-    }
+  const maxVal = sorted[0][1];
+  const section = document.getElementById('ecoDistributionSection');
+  section.style.display = 'block';
+
+  document.getElementById('ecoBarChart').innerHTML = sorted.map(([eco, count]) => {
+    const pct = (count / maxVal * 100).toFixed(0);
+    const color = ECO_COLORS[eco] || '#666';
+    const label = ECO_LABELS[eco] || eco;
+    return `<div class="bar-item">
+      <span class="bar-label" title="${label}">${label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div>
+      <span class="bar-value">${count.toLocaleString()}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderFindings() {
+  /* Render findings table with severity filtering. */
+  const section = document.getElementById('findingsSection');
+  const tbody = document.getElementById('findingsBody');
+  const countEl = document.getElementById('findingsCount');
+
+  if (findings.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  countEl.textContent = `${findings.length} finding(s)`;
+
+  // Store all findings in a data attribute for filtering
+  section.dataset.allFindings = JSON.stringify(findings.map(f => ({
+    severity: f.severity || 'unknown',
+    catalog_id: f.catalog_id || '-',
+    catalog_name: f.catalog_name || '-',
+    ecosystem: f.ecosystem || '-',
+    package_name: f.package_name || '-',
+    version: f.version || '-',
+    evidence: f.evidence || '-',
+    source_file: f.source_file || '-',
+    confidence: f.confidence || '-',
+  })));
+
+  filterFindings('all');
+}
+
+function filterFindings(severity) {
+  /* Filter the findings table by severity. */
+  const section = document.getElementById('findingsSection');
+  const tbody = document.getElementById('findingsBody');
+  const raw = section && section.dataset.allFindings;
+
+  // Update active filter button
+  document.querySelectorAll('#findingsFilterBar .filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sev === severity);
   });
 
-  new Chart(document.getElementById('confChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['High', 'Medium', 'Low'],
-      datasets: [{
-        data: [
-          packages.filter(p=>p.confidence==='high').length,
-          packages.filter(p=>p.confidence==='medium').length,
-          packages.filter(p=>p.confidence==='low').length,
-        ],
-        backgroundColor: ['#34d399', '#fbbf24', '#fb923c'],
-        borderWidth: 0,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'right', labels: { color: '#8b8fa3', boxWidth: 12, padding: 8, font: { size: 11 } } },
-        title: { display: true, text: 'Confidence Distribution', color: '#e2e4f0', font: { size: 13 } }
-      }
-    }
-  });
+  if (!raw) return;
+
+  let items;
+  try { items = JSON.parse(raw); } catch(e) { return; }
+
+  if (severity !== 'all') {
+    items = items.filter(f => (f.severity || '').toLowerCase() === severity);
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-row">No findings match this severity filter</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map(f => {
+    const sevClass = `badge-${(f.severity || 'unknown').toLowerCase()}`;
+    const sevLabel = (f.severity || 'unknown').toLowerCase();
+    return `<tr class="finding-row">
+      <td><span class="badge ${sevClass}">${esc(f.severity)}</span></td>
+      <td style="font-family:monospace;font-size:0.75rem;">${esc(f.catalog_id)}</td>
+      <td>${esc(f.catalog_name)}</td>
+      <td><span class="badge badge-${f.ecosystem}">${esc(f.ecosystem)}</span></td>
+      <td><strong>${esc(f.package_name)}</strong></td>
+      <td>${esc(f.version)}</td>
+      <td style="font-style:italic;color:var(--text-dim);">${esc(f.evidence)}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;" title="${esc(f.source_file)}">${esc(f.source_file)}</td>
+      <td class="conf-${f.confidence}">${esc(f.confidence)}</td>
+    </tr>`;
+  }).join('');
 }
 
 function buildTabs() {

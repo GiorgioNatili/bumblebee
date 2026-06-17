@@ -44,6 +44,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         return _run_scan(rest)
     elif subcommand == "roots":
         return _run_roots(rest)
+    elif subcommand == "intel":
+        return _run_intel(rest)
     elif subcommand in ("version", "--version", "-version"):
         print(bversion.version_string())
         return 0
@@ -80,10 +82,12 @@ bumblebee — endpoint package inventory collector
 usage:
   bumblebee scan     [flags]   run a scan and emit NDJSON records
   bumblebee roots    [flags]   print the resolved scan roots and exit
+  bumblebee intel    <command> [flags]   threat-intel operations
   bumblebee selftest [flags]   scan embedded fixtures and verify detection
   bumblebee version            print version and exit
 
 run "bumblebee scan --help" for scan flags, including --profile.
+run "bumblebee intel --help" for intel commands.
 """
 
 
@@ -389,6 +393,25 @@ def _run_roots(args: list[str]) -> int:
     for r in roots:
         print(f"{r.kind}\t{r.path}")
     return 0
+
+
+def _run_intel(args: list[str]) -> int:
+    """Execute intel subcommands."""
+    if not args:
+        print("bumblebee intel <command> [flags]\n\nCommands:\n  refresh  Fetch OSV malicious-package data and write a local exposure catalog",
+              file=sys.stderr)
+        return 2
+
+    subcommand = args[0]
+    rest = args[1:]
+
+    if subcommand == "refresh":
+        from bumblebee_py.intel.refresh import main as refresh_main
+        return refresh_main(rest)
+    else:
+        print(f"unknown intel subcommand {subcommand!r} (try: refresh)",
+              file=sys.stderr)
+        return 2
 
 
 def _add_scan_flags(parser: argparse.ArgumentParser):

@@ -302,6 +302,101 @@ scan, captures the output, embeds it into a self-contained HTML dashboard,
 and opens it in your browser. `bumblebee scan --help`
 lists every flag.
 
+### Exposure-catalog matching
+
+Scan results can be matched against local threat-intel catalogs to flag
+potential exposures. Matching is **exact** (ecosystem + normalized package
+name + version) — package-presence evidence, not runtime forensic proof.
+
+```bash
+# Baseline scan with catalog matching, saved to file.
+bumblebee scan \
+  --profile baseline \
+  --exposure-catalog ./threat_intel \
+  --output file \
+  --output-file ~/.bumblebee/snapshots/baseline-$(date +%F).ndjson
+
+# Deep scan, findings only (suppress package records).
+bumblebee scan \
+  --profile deep \
+  --root "$HOME" \
+  --exposure-catalog ./threat_intel \
+  --findings-only \
+  --output file \
+  --output-file ~/.bumblebee/snapshots/findings-$(date +%F).ndjson
+```
+
+Matching produces `finding` records with severity, catalog metadata, and
+evidence text. These records are rendered in the dashboard's **Findings**
+section (see [Browser dashboard](#browser-dashboard)).
+
+### Threat-intel refresh
+
+Bumblebee can fetch OSV malicious-package data and convert it to a local
+exposure catalog:
+
+```bash
+# Fetch from the default OpenSSF source and write a catalog file.
+bumblebee intel refresh --output threat_intel/osv-malicious.json
+
+# Dry-run with verbose output (no file written).
+bumblebee intel refresh --dry-run --verbose
+
+# Refresh from a local OSV dump (offline).
+bumblebee intel refresh --source ./osv-malicious.json --output threat_intel/refresh.json
+```
+
+Supported ecosystems: npm, PyPI, Go, RubyGems, Packagist, Homebrew.
+Records with only range-based versions (no explicit version list) are
+skipped with a recorded skip reason. Unsupported ecosystems are noted in
+the output metadata.
+
+```text
+~/.bumblebee/
+  threat_intel/          # local exposure catalogs
+  snapshots/             # daily scan output
+    baseline-2026-06-17.ndjson
+    findings-2026-06-17.ndjson
+```
+
+### Daily snapshots with refreshed threat intelligence
+
+For ongoing monitoring, set up a daily workflow:
+
+```bash
+# 1. Refresh threat intel.
+bumblebee intel refresh \
+  --output ~/.bumblebee/threat_intel/osv-malicious.json \
+  --verbose
+
+# 2. Run a daily inventory snapshot with catalog matching.
+bumblebee scan \
+  --profile baseline \
+  --exposure-catalog ~/.bumblebee/threat_intel \
+  --output file \
+  --output-file ~/.bumblebee/snapshots/baseline-$(date +%F).ndjson
+
+# 3 (optional). Findings-only snapshot.
+bumblebee scan \
+  --profile baseline \
+  --exposure-catalog ~/.bumblebee/threat_intel \
+  --findings-only \
+  --output file \
+  --output-file ~/.bumblebee/snapshots/findings-$(date +%F).ndjson
+```
+
+**Cron example (macOS/Linux):**
+
+```cron
+# Run daily at 6 AM.
+0 6 * * * cd /path/to/bumblebee && \
+  bumblebee intel refresh --output ~/.bumblebee/threat_intel/osv-malicious.json && \
+  bumblebee scan --profile baseline \
+    --exposure-catalog ~/.bumblebee/threat_intel \
+    --output file \
+    --output-file ~/.bumblebee/snapshots/baseline-$(date +\%F).ndjson
+```
+
 ## Output
 
 Records are NDJSON, one per line. Diagnostics go to stderr as NDJSON. Each

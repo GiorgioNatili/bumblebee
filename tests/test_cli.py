@@ -278,30 +278,39 @@ class TestEmbeddedReportRendering:
         assert pos_labels < pos_autoload, \
             "ECO_LABELS after auto-load — temporal dead zone crash!"
 
-    def test_template_first_script_is_chartjs(self):
-        """First <script> in the template is Chart.js CDN (gets replaced by injection).
+    def test_template_has_no_chartjs_cdn(self):
+        """The viewer should not depend on Chart.js CDN (offline operation)."""
+        src = self._read_template()
+        assert "chart.js" not in src, \
+            "Chart.js CDN script present - viewer requires network!"
 
-        The injection replaces the first <script> tag with the data script.
-        Chart.js must be the original first script for the injection to work
-        correctly.
-        """
+    def test_template_contains_all_required_sections(self):
+        """The viewer must contain findings, packages, and summary rendering."""
+        src = self._read_template()
+        assert "findingsSection" in src, "findings section missing"
+        assert "findingsBody" in src, "findings table missing"
+        assert "summaryCards" in src, "summary cards missing"
+        assert "loadScanData" in src, "loadScanData missing"
+        assert "parseScanData" in src, "parseScanData missing"
+        assert "renderDashboard" in src, "renderDashboard missing"
+        assert "buildEcoBars" in src, "eco bars missing"
+        assert "renderFindings" in src, "findings renderer missing"
+        assert "filterFindings" in src, "findings filter missing"
+        assert "Potential Exposures" in src or "potential exposure" in src.lower()
+
+    def test_template_contains_pipeline_functions(self):
+        """The single <script> tag in the template contains the full app pipeline."""
         src = self._read_template()
         first_script = src.find("<script")
         assert first_script >= 0
-        chart_js_snippet = src[first_script:first_script + 80]
-        assert "chart.js" in chart_js_snippet, \
-            f"first <script> should be Chart.js CDN, got: {chart_js_snippet[:60]}"
-
-    def test_template_second_script_contains_app_code(self):
-        """Second <script> contains the full app code with loadScanData."""
-        src = self._read_template()
-        first_script = src.find("<script")
-        second_script = src.find("<script", first_script + 7)
-        assert second_script >= 0
-        second_end = src.find("</script>", second_script)
-        second_content = src[second_script:second_end]
-        assert "loadScanData" in second_content, \
-            "second <script> should contain loadScanData (app pipeline)"
+        script_end = src.find("</script>", first_script)
+        script_content = src[first_script:script_end]
+        assert "loadScanData" in script_content, \
+            "script should contain loadScanData (app pipeline)"
+        assert "parseScanData" in script_content
+        assert "renderDashboard" in script_content
+        assert "renderFindings" in script_content
+        assert "buildEcoBars" in script_content
 
     def test_generated_report_round_trip(self):
         """Generate a report and validate the HTML would render in a browser."""
@@ -376,19 +385,30 @@ class TestEmbeddedReportRendering:
                         if r.get("record_type") == "package"]
                 assert len(pkgs) == 2, f"expected 2 packages, got {len(pkgs)}"
 
-                # Chart.js script still present
-                assert "chart.js" in html, \
-                    "Chart.js script tag missing after injection"
+                # Viewer must be self-contained (no CDN deps)
+                assert "chart.js" not in html, \
+                    "Chart.js CDN dependency found - viewer needs network!"
 
                 # App code present
                 assert "function loadScanData" in html
                 assert "function parseScanData" in html
                 assert "function renderDashboard" in html
+                assert "function renderFindings" in html
+                assert "function buildEcoBars" in html
                 assert "const ECO_COLORS" in html
                 assert "const ECO_LABELS" in html
 
+                # Findings rendering present
+                assert "findingsSection" in html, "findings section missing"
+                assert "findingsBody" in html, "findings table body missing"
+                assert "filterFindings" in html, "findings filter function missing"
+                assert "Potential Exposures" in html or "potential exposure" in html.lower()
+
                 # Debug logging present
                 assert "debugLog" in html, "debugLog function missing"
+
+                # No CDN/remote scripts (offline operation)
+                assert "chart.js" not in html, "Chart.js CDN dependency still present!"
 
                 # Error/fallback CSS present
                 assert ".error" in html, "error state CSS missing"

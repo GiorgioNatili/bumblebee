@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "entries": [
+    {
+      "id": "TEST-001",
+      "name": "Test: malicious npm pkg",
+      "ecosystem": "npm",
+      "package": "evil-npm",
+      "versions": ["1.0.0", "1.0.1"],
+      "severity": "critical"
+    },
+    {
+      "id": "TEST-002",
+      "name": "Test: malicious pypi pkg",
+      "ecosystem": "pypi",
+      "package": "evil-pypi",
+      "versions": ["0.1.0"],
+      "severity": "high"
+    }
+  ]
+}

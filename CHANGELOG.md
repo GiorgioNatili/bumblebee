@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.0 (2026-06-17)
+
+### Added
+
+- **`bumblebee intel refresh` subcommand** — Fetches OSV malicious-package
+  data and converts it to Bumblebee exposure catalogs. Supports `--source`
+  (URL or local file), `--output`, `--dry-run`, and `--verbose` flags.
+  Implemented as a package submodule at `bumblebee_py/intel/`.
+- **Findings rendering in the HTML viewer** — The dashboard now has a
+  dedicated Findings section with severity filters (critical/high/medium/low),
+  catalog ID, catalog name, ecosystem, package name, version, evidence, source
+  path, and confidence columns.
+- **Offline operation** — Removed Chart.js CDN dependency. Ecosystem
+  distribution is now rendered with inline CSS bar charts. No network
+  required.
+- **Findings summary cards** — The summary section now shows potential
+  exposure counts (total, critical, high, medium, low) before package counts.
+- **Test suite expanded** — 113 tests total (up from 78). New test files:
+  `test_intel.py` (OSV refresh, catalog writing, CLI smoke tests),
+  `test_findings.py` (catalog loading, finding generation, findings-only mode).
+- **Test fixtures** — OSV malicious-package sample data and sample exposure
+  catalogs under `tests/fixtures/`.
+
+### Changed
+
+- **CLI usage** — Updated to include `bumblebee intel <command>`.
+- **`scan-viewer.html`** — Refactored to use `loadScanData()` →
+  `parseScanData()` → `renderDashboard()` pipeline. Added `renderFindings()`,
+  `filterFindings()`, and `buildEcoBars()` functions. No external
+  dependencies.
+- Version bumped to 0.3.0 (minor bump for new CLI subcommand).
+
 ## 0.2.6 (2026-06-17)
 
 ### Added

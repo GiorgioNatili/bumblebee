@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "metadata": {
+    "source": "https://example.com/test-source",
+    "generated_at": "2026-06-17T00:00:00Z",
+    "source_revision": "abc123",
+    "records_processed": 10,
+    "entries_emitted": 2,
+    "records_skipped": 8,
+    "skip_reasons": {"unsupported_ecosystem: Maven": 5, "no_explicit_versions": 3}
+  },
+  "entries": [
+    {
+      "id": "META-001",
+      "name": "Test with metadata",
+      "ecosystem": "npm",
+      "package": "test-pkg",
+      "versions": ["1.0.0"],
+      "severity": "medium"
+    }
+  ]
+}
