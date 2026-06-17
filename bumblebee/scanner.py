@@ -231,18 +231,18 @@ def run(ctx, cfg: Config) -> tuple[Result, Optional[Exception]]:
         elif enabled(ECOSYSTEM_AGENT_SKILL) and skills.is_known_lock_file(basename):
             job = ("skill-lock", full_path, "", "", "")
         elif enabled(ECOSYSTEM_BROWSER_EXTENSION) and basename == "manifest.json":
-            ok, ext_id, ver_dir, prof_dir = bx_s.is_chromium_extension_manifest(full_path)
+            ok, ext_id, ver_dir, prof_dir = browserext.is_chromium_extension_manifest(full_path)
             if ok:
                 job = ("chromium-ext", full_path, prof_dir, ext_id, ver_dir)
         elif enabled(ECOSYSTEM_BROWSER_EXTENSION) and basename == "extensions.json":
-            if bx_s.is_firefox_extensions_json(full_path):
+            if browserext.is_firefox_extensions_json(full_path):
                 job = ("firefox-ext", full_path, "", "", "")
         elif enabled(ECOSYSTEM_HOMEBREW) and basename == "INSTALL_RECEIPT.json":
-            ok, name, version, cellar_dir = hb_s.is_formula_receipt(full_path)
+            ok, name, version, cellar_dir = homebrew.is_formula_receipt(full_path)
             if ok:
                 job = ("homebrew-formula", full_path, cellar_dir, name, version)
-        elif enabled(ECOSYSTEM_HOMEBREW) and hb_s.looks_like_cask_metadata_marker(full_path):
-            ok, token, version, caskroom_dir = hb_s.is_cask_metadata_marker(full_path)
+        elif enabled(ECOSYSTEM_HOMEBREW) and homebrew.looks_like_cask_metadata_marker(full_path):
+            ok, token, version, caskroom_dir = homebrew.is_cask_metadata_marker(full_path)
             if ok:
                 job = ("homebrew-cask", full_path, caskroom_dir, token, version)
         elif basename == "package.json":
