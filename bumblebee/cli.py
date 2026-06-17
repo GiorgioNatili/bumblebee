@@ -283,18 +283,13 @@ def _run_scan(args: list[str]) -> int:
 def _open_viewer(data_file):
     """Generate a self-contained HTML dashboard and open it in the browser."""
     import json
-    import importlib.resources as resources
 
     # Locate the viewer template bundled with the package
     viewer_path = os.path.join(os.path.dirname(__file__), "scan-viewer.html")
     if not os.path.isfile(viewer_path):
-        # Fallback for pip: file is alongside cli.py in the package
-        m_viewer_path = os.path.join(os.path.dirname(__file__), "scan-viewer.html")
-        if not os.path.isfile(m_viewer_path):
-            print("dashboard template (scan-viewer.html) not found in package",
-                  file=sys.stderr)
-            return
-        viewer_path = m_viewer_path
+        print("dashboard template (scan-viewer.html) not found in package",
+              file=sys.stderr)
+        return
 
     # Read the JSONL data
     if isinstance(data_file, str):

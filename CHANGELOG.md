@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 (2026-06-17)
+
+### Fixed
+
+- **`--view` flag not found with pipx installs** — `scan-viewer.html` was
+  bundled but the template path lookup had a broken fallback that checked
+  the same path twice. Removed the duplicate check; the file is now found
+  correctly at `bumblebee/scan-viewer.html` (always shipped with the package).
+
 ## 0.2.0 (2026-06-17)
 
 ### Added

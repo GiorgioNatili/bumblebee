@@ -10,7 +10,7 @@ from bumblebee.ecosystems import npm, pypi
 BASE_RECORD = Record(
     schema_version="0.1.0",
     scanner_name="bumblebee",
-    scanner_version="0.2.0",
+    scanner_version="0.2.1",
     run_id="test-run",
     scan_time="2024-01-01T00:00:00Z",
     endpoint=Endpoint(hostname="test-host", os="linux", arch="x86_64"),
