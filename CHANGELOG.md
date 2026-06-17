@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3 (2026-06-17)
+
+### Changed
+
+- **HTML report auto-generated on every scan** — The JSONL output is now
+  always captured to a temp file and rendered into the dashboard HTML,
+  saved to `~/.bumblebee/reports/bumblebee_{hostname}_{timestamp}.html`.
+  The path is printed on stderr so you know where to find it.
+- **`--view` now means "open in browser"** — The report is always generated;
+  `--view` additionally opens it in your default browser.
+
 ## 0.2.2 (2026-06-17)
 
 ### Changed

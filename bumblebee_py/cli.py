@@ -60,6 +60,20 @@ def _print_usage(file):
     print(_USAGE, file=file)
 
 
+class _Tee:
+    """Write stream that duplicates to multiple outputs (like tee(1))."""
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
 _USAGE = """\
 bumblebee — endpoint package inventory collector
 
@@ -131,24 +145,27 @@ def _run_scan(args: list[str]) -> int:
         print(err, file=sys.stderr)
         return 2
 
-    # Capture output for --view
-    _view_data_file = None
-    if opts.view:
-        if opts.output == "http":
-            print("--view is not compatible with --output=http", file=sys.stderr)
-            return 2
-        if opts.output == "stdout":
-            _view_data_file = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".jsonl", delete=False, prefix="bumblebee_")
-            records_w = _view_data_file
-            close_fn_orig = close_fn
-            def _close_view():
-                if close_fn_orig:
-                    close_fn_orig()
-                _view_data_file.close()
-            close_fn = _close_view
-        else:
-            _view_data_file = opts.output_file
+    # Capture output for the dashboard report
+    _jsonl_file = None
+    _close_jsonl = None
+    if opts.output == "stdout":
+        # Tee: write to both stdout and a temp JSONL file
+        _jsonl_file = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, prefix="bumblebee_")
+        _close_jsonl = _jsonl_file.close
+        records_w = _Tee(sys.stdout, _jsonl_file)
+        # Wrap the original close to also close the JSONL temp file
+        close_fn_orig = close_fn
+        def _close_wrapper():
+            if close_fn_orig:
+                close_fn_orig()
+            _jsonl_file.close()
+        close_fn = _close_wrapper
+    elif opts.output == "file":
+        # Also capture a copy for the dashboard
+        _jsonl_file = open(opts.output_file + ".jsonl", "w")
+        _close_jsonl = _jsonl_file.close
+    # For --output=http, no local JSONL capture (report not generated)
 
     run_id = secrets.token_hex(16)
     emitter = Emitter(records_w, sys.stderr, run_id)
@@ -273,62 +290,75 @@ def _run_scan(args: list[str]) -> int:
                  f"timed_out={res.timed_out} "
                  f"duration={res.duration:.2f}s")
 
-    # Open the dashboard viewer in the browser
-    if opts.view and _view_data_file:
-        _open_viewer(_view_data_file)
+    # Generate the dashboard HTML report from captured data
+    if _jsonl_file:
+        report_path = _generate_report(_jsonl_file.name if hasattr(_jsonl_file, 'name') else _jsonl_file)
+        if report_path:
+            print(f"📊 Report saved: {report_path}", file=sys.stderr)
+            if opts.view:
+                webbrowser.open(f"file://{os.path.abspath(report_path)}")
+                print(f"🌐 Dashboard opened in browser", file=sys.stderr)
 
     return exit_code
 
 
-def _open_viewer(data_file):
-    """Generate a self-contained HTML dashboard and open it in the browser."""
+def _ensure_report_dir() -> str:
+    """Return the path to ~/.bumblebee/reports/, creating it if needed."""
+    report_dir = os.path.join(os.path.expanduser("~"), ".bumblebee", "reports")
+    try:
+        os.makedirs(report_dir, exist_ok=True)
+    except OSError:
+        # Fall back to temp directory
+        report_dir = tempfile.mkdtemp(prefix="bumblebee_reports_")
+    return report_dir
+
+
+def _generate_report(jsonl_path: str) -> Optional[str]:
+    """Generate a timestamped HTML dashboard from a JSONL file.
+
+    Returns the path to the generated HTML file, or None on failure.
+    """
     import json
 
-    # Locate the viewer template bundled with the package
     viewer_path = os.path.join(os.path.dirname(__file__), "scan-viewer.html")
     if not os.path.isfile(viewer_path):
         print("dashboard template (scan-viewer.html) not found in package",
               file=sys.stderr)
-        return
-
-    # Read the JSONL data
-    if isinstance(data_file, str):
-        data_path = data_file
-    else:
-        data_path = data_file.name
+        return None
 
     try:
-        with open(data_path) as f:
+        with open(jsonl_path) as f:
             jsonl_data = f.read()
     except OSError as e:
-        print(f"read scan data for viewer: {e}", file=sys.stderr)
-        return
+        print(f"read scan data for report: {e}", file=sys.stderr)
+        return None
 
-    # Read the viewer template
     try:
         with open(viewer_path) as f:
             html = f.read()
     except OSError as e:
         print(f"read viewer template: {e}", file=sys.stderr)
-        return
+        return None
 
-    # Embed the JSONL data as a JS string literal (using json.dumps for safe escaping)
+    # Embed the JSONL data into the HTML
     data_script = f"<script>window.__BUMBLEBEE_DATA__ = {json.dumps(jsonl_data)};</script>"
-
-    # Insert the data script right before the first <script> tag (after <head>)
     html = html.replace("<script>", data_script + "\n<script>", 1)
 
-    # Write to a temp HTML file
+    # Write to a timestamped file in the reports directory
+    report_dir = _ensure_report_dir()
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    hostname = os.uname().nodename.split(".")[0]
+    out_name = f"bumblebee_{hostname}_{timestamp}.html"
+    out_path = os.path.join(report_dir, out_name)
+
     try:
-        out_fd, out_path = tempfile.mkstemp(suffix=".html", prefix="bumblebee_")
-        with os.fdopen(out_fd, "w") as f:
+        with open(out_path, "w") as f:
             f.write(html)
     except OSError as e:
-        print(f"write viewer: {e}", file=sys.stderr)
-        return
+        print(f"write report: {e}", file=sys.stderr)
+        return None
 
-    print(f"📊 Dashboard opened: {out_path}", file=sys.stderr)
-    webbrowser.open(f"file://{os.path.abspath(out_path)}")
+    return out_path
 
 
 def _run_roots(args: list[str]) -> int:
@@ -411,7 +441,8 @@ def _add_scan_flags(parser: argparse.ArgumentParser):
                         help="env var holding a stable device/endpoint id")
 
     parser.add_argument("--view", action="store_true", default=False,
-                        help="open the dashboard in a browser after the scan")
+                        help="open the dashboard report in the browser (report is "
+                             "always saved to ~/.bumblebee/reports/)")
 
 
 def _parse_ecosystem_filter(values: list[str]) -> tuple[Optional[set[str]], Optional[str]]:
