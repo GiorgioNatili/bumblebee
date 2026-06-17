@@ -350,7 +350,7 @@ def _generate_report(jsonl_path: str) -> Optional[str]:
         .replace('"', '\\"')
         .replace("\n", "\\n")
         .replace("</", "<\\/"))
-    data_script = f'<script>window.__BUMBLEBEE_DATA__ = "{escaped}";</script>'
+    data_script = f'<script>window.bumblebee_data = "{escaped}";</script>'
     html = html.replace("<script>", data_script + "\n<script>", 1)
 
     # Write to a timestamped file in the reports directory

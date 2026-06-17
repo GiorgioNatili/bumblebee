@@ -156,17 +156,17 @@ class TestGenerateReport:
             # 2. The file was written and contains the embedded data
             with open(result) as f:
                 output_html = f.read()
-            assert "__BUMBLEBEE_DATA__" in output_html
+            assert "bumblebee_data" in output_html
 
             # 3. Simulate what the browser does with the embedded JS string:
             #    Extract the JS string literal, unescape JS escapes,
             #    split by newlines, and parse each line as JSON.
             import re as _re
             m = _re.search(
-                r'__BUMBLEBEE_DATA__ = (.+?);</script>',
+                r'bumblebee_data = (.+?);</script>',
                 output_html, _re.DOTALL
             )
-            assert m is not None, "could not find __BUMBLEBEE_DATA__ assignment"
+            assert m is not None, "could not find bumblebee_data assignment"
             js_literal = m.group(1)
 
             # The JS string literal is double-quoted: "content"
@@ -276,7 +276,7 @@ class TestEmbeddedReportRendering:
         src = self._read_template()
         pos_colors = src.index("const ECO_COLORS")
         pos_labels = src.index("const ECO_LABELS")
-        pos_parse = src.index("parseData(window.__BUMBLEBEE_DATA__)")
+        pos_parse = src.index("parseData(window.bumblebee_data)")
         assert pos_colors < pos_parse, \
             "ECO_COLORS declared after parseData call — temporal dead zone crash!"
         assert pos_labels < pos_parse, \
@@ -337,23 +337,23 @@ class TestEmbeddedReportRendering:
                 with open(result) as f:
                     html = f.read()
 
-                # __BUMBLEBEE_DATA__ appears 5 times:
+                # bumblebee_data appears 5 times:
                 #   1. injected data script (definition)
-                #   2. if-check: "if (window.__BUMBLEBEE_DATA__)"
-                #   3. length log: "window.__BUMBLEBEE_DATA__.length"
-                #   4. preview log: "window.__BUMBLEBEE_DATA__.substring"
-                #   5. parse call: "parseData(window.__BUMBLEBEE_DATA__)"
-                data_refs = html.count("__BUMBLEBEE_DATA__")
+                #   2. if-check: "if (window.bumblebee_data)"
+                #   3. length log: "window.bumblebee_data.length"
+                #   4. preview log: "window.bumblebee_data.substring"
+                #   5. parse call: "parseData(window.bumblebee_data)"
+                data_refs = html.count("bumblebee_data")
                 assert data_refs == 5, \
-                    f"expected 5 __BUMBLEBEE_DATA__ refs, got {data_refs}"
+                    f"expected 5 bumblebee_data refs, got {data_refs}"
 
                 # Extract the data string
                 import re as _re
                 m = _re.search(
-                    r'__BUMBLEBEE_DATA__ = (.+?);</script>',
+                    r'bumblebee_data = (.+?);</script>',
                     html, _re.DOTALL
                 )
-                assert m, "no __BUMBLEBEE_DATA__ assignment"
+                assert m, "no bumblebee_data assignment"
                 js_literal = m.group(1)
 
                 # Must be a valid JS double-quoted string
@@ -426,7 +426,7 @@ class TestEmbeddedReportRendering:
                     "drop zone class manipulation missing"
 
                 # Verify the data IS still embedded
-                assert "__BUMBLEBEE_DATA__" in html
+                assert "bumblebee_data" in html
 
         finally:
             os.unlink(jsonl.name)
@@ -455,7 +455,7 @@ class TestEmbeddedReportRendering:
 
                 # The data is embedded, and the JS will try to parse it
                 # The fallback catches the case where packages.length === 0
-                assert "__BUMBLEBEE_DATA__" in html
+                assert "bumblebee_data" in html
                 assert 'packages.length === 0' in html
                 assert 'No valid records' in html or 'no packages' in html.lower()
 

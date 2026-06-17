@@ -267,7 +267,26 @@
       </div>
     </div>
     <div class="filter-bar" id="filterBar"></div>
-    <div class="table-wrap"><table><tbody id="tableBody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr>
+      <th style="width:30px"></th>
+      <th onclick="sortTable('ecosystem')">Ecosystem</th>
+      <th onclick="sortTable('package_name')">Package</th>
+      <th onclick="sortTable('version')">Version</th>
+      <th onclick="sortTable('confidence')">Confidence</th>
+      <th onclick="sortTable('source_type')">Source</th>
+      <th>Path</th>
+    </tr></thead><tbody id="tableBody"></tbody></table></div>
+  </div>
+
+  <!-- Raw data section (collapsible) -->
+  <div class="section" id="rawDataSection" style="display:none">
+    <div class="section-header">
+      <h2>📄 Raw Data</h2>
+      <span class="count-badge" id="rawDataSize"></span>
+      <button class="filter-btn" onclick="toggleRawData()" id="rawDataToggle">Show</button>
+    </div>
+    <pre id="rawDataContent" style="display:none;max-height:400px;overflow:auto;font-size:0.75rem;background:var(--bg);padding:12px;border-radius:6px;color:var(--text-dim);"></pre>
+  </div>
   </div>
 </div>
 
@@ -276,6 +295,7 @@
 let allRecords = [];
 let packages = [];
 let summary = null;
+let rawDataText = null;
 let activeTab = 'all';
 let sortCol = null;
 let sortDir = 1;
@@ -308,12 +328,10 @@ const ECO_LABELS = {
 };
 
 // Auto-load embedded data (injected by bumblebee --view)
-if (window.__BUMBLEBEE_DATA__) {
-  const len = window.__BUMBLEBEE_DATA__.length;
-  const preview = window.__BUMBLEBEE_DATA__.substring(0, 120).replace(/\n/g, '\\n');
-  console.log(`[bumblebee] embedded data: ${len.toLocaleString()} chars`);
-  console.log(`[bumblebee] preview: ${preview}...`);
-  parseData(window.__BUMBLEBEE_DATA__);
+if (window.bumblebee_data) {
+  console.log(`[bumblebee] embedded data detected: ${window.bumblebee_data.length} chars`);
+  console.log(`[bumblebee] preview: ${window.bumblebee_data.substring(0, 120).replace(/\n/g, '\\n')}...`);
+  parseData(window.bumblebee_data);
 }
 
 // ─── file handling ───
@@ -342,6 +360,7 @@ function parseData(text) {
   allRecords = [];
   packages = [];
   summary = null;
+  rawDataText = text;
   let parseErrors = 0;
   let totalLines = 0;
   for (const line of text.split('\n').filter(Boolean)) {
@@ -385,6 +404,14 @@ function buildDashboard() {
   ecosystemFilter = null;
   activeTab = 'all';
   renderTable();
+  // Show raw data section with the raw JSONL text
+  const rawSection = document.getElementById('rawDataSection');
+  if (rawSection && rawDataText) {
+    rawSection.style.display = 'block';
+    document.getElementById('rawDataSize').textContent = `${(rawDataText.length / 1024).toFixed(1)} KB`;
+    document.getElementById('rawDataContent').textContent = rawDataText;
+    console.log(`[bumblebee] render completed: ${packages.length} packages, ${allRecords.length} total records`);
+  }
 }
 
 function buildSummaryCards() {
@@ -522,15 +549,36 @@ function renderTable() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(p => {
+  tbody.innerHTML = filtered.map((p, idx) => {
     const ecoClass = `badge-${p.ecosystem}`;
     const confClass = `conf-${p.confidence}`;
+    const detailId = `detail-${idx}`;
+    const arrow = sortCol === null || sortCol === 'package_name' ? 
+      `<span style="cursor:pointer;color:var(--accent);font-size:0.8rem;" onclick="toggleRowDetail('${detailId}', this)">▶</span>` :
+      `<span style="color:var(--text-dim);font-size:0.8rem;">▶</span>`;
     return `<tr>
+      <td>${arrow}</td>
       <td><span class="badge ${ecoClass}">${ECO_LABELS[p.ecosystem] || p.ecosystem}</span></td>
       <td><strong>${esc(p.package_name)}</strong> <span style="color:var(--text-dim)">${esc(p.version)}</span></td>
       <td class="${confClass}">${p.confidence}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${esc(p.source_file)}">${esc(p.source_file || '')}</td>
       <td>${p.source_type || '-'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${esc(p.source_file || '')}">${esc(p.source_file || '')}</td>
+    </tr>
+    <tr id="${detailId}" style="display:none;">
+      <td colspan="6" style="padding:8px 12px 12px 40px;background:var(--surface2);font-size:0.78rem;color:var(--text-dim);">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 16px;">
+          <span style="font-weight:500;">Record ID:</span><span style="word-break:break-all;">${esc(p.record_id || '-')}</span>
+          <span style="font-weight:500;">Ecosystem:</span><span>${esc(p.ecosystem || '-')}</span>
+          <span style="font-weight:500;">Source File:</span><span>${esc(p.source_file || '-')}</span>
+          <span style="font-weight:500;">Source Type:</span><span>${esc(p.source_type || '-')}</span>
+          <span style="font-weight:500;">Package Manager:</span><span>${esc(p.package_manager || '-')}</span>
+          <span style="font-weight:500;">Root Kind:</span><span>${esc(p.root_kind || '-')}</span>
+          <span style="font-weight:500;">Confidence:</span><span class="${confClass}">${esc(p.confidence || '-')}</span>
+          ${p.install_scope ? `<span style="font-weight:500;">Install Scope:</span><span>${esc(p.install_scope)}</span>` : ''}
+          ${p.direct_dependency !== undefined ? `<span style="font-weight:500;">Direct Dep:</span><span>${p.direct_dependency}</span>` : ''}
+          ${p.has_lifecycle_scripts ? `<span style="font-weight:500;color:var(--orange);">Lifecycle Scripts:</span><span style="color:var(--orange);">true</span>` : ''}
+        </div>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -544,6 +592,31 @@ function sortTable(col) {
 function esc(s) {
   if (!s) return '';
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleRowDetail(id, arrow) {
+  const row = document.getElementById(id);
+  if (!row) return;
+  if (row.style.display === 'none') {
+    row.style.display = 'table-row';
+    arrow.textContent = '▼';
+    arrow.style.color = 'var(--accent)';
+  } else {
+    row.style.display = 'none';
+    arrow.textContent = '▶';
+    arrow.style.color = 'var(--accent)';
+  }
+}
+
+let _rawVisible = false;
+function toggleRawData() {
+  _rawVisible = !_rawVisible;
+  const content = document.getElementById('rawDataContent');
+  const btn = document.getElementById('rawDataToggle');
+  if (content && btn) {
+    content.style.display = _rawVisible ? 'block' : 'none';
+    btn.textContent = _rawVisible ? 'Hide' : 'Show';
+  }
 }
 </script>
 </body>
