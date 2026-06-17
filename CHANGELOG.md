@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 (2026-06-17)
+
+### Changed
+
+- **Package renamed** `bumblebee/` → `bumblebee_py/` to disambiguate from Go
+  `cmd/bumblebee/`. Internal imports updated, console script unchanged.
+- **`scan-viewer.html` now ships in the wheel** — added `*.html` to
+  `[tool.setuptools.package-data]` so pip/pipx installs find the template.
+
 ## 0.2.1 (2026-06-17)
 
 ### Fixed
