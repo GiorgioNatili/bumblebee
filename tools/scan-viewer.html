@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bumblebee Inventory Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2b;
+    --surface2: #242738;
+    --border: #2e3150;
+    --text: #e2e4f0;
+    --text-dim: #8b8fa3;
+    --accent: #6c8aff;
+    --accent-glow: rgba(108,138,255,0.15);
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --orange: #fb923c;
+    --red: #f87171;
+    --pink: #f472b6;
+    --cyan: #22d3ee;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px;
+  }
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 24px; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 24px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .drop-zone svg { width: 48px; height: 48px; stroke: var(--text-dim); margin-bottom: 12px; }
+  .drop-zone.loaded { border-color: var(--green); background: rgba(52,211,153,0.08); display: none; }
+  .drop-zone input { display: none; }
+
+  /* Layout */
+  .dashboard { display: none; }
+  .dashboard.show { display: block; }
+
+  /* Summary cards */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card .value { font-size: 1.8rem; font-weight: 700; }
+  .card .label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  .card .sub { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+
+  /* Chart row */
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 800px) { .chart-row { grid-template-columns: 1fr; } }
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .chart-box canvas { max-height: 260px; max-width: 100%; }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .count-badge {
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 99px;
+  }
+  .search-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--text);
+    font-size: 0.85rem;
+    width: 220px;
+    outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text-dim); }
+
+  .filter-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  thead { position: sticky; top: 0; z-index: 1; }
+  th {
+    background: var(--surface2);
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th:hover { color: var(--text); }
+  td {
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tr:hover td { background: rgba(108,138,255,0.04); }
+  .empty-row td { text-align: center; color: var(--text-dim); padding: 24px; }
+
+  /* Confidence badges */
+  .conf-high { color: var(--green); }
+  .conf-medium { color: var(--yellow); }
+  .conf-low { color: var(--orange); }
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+  .badge-npm { background: rgba(203,56,55,0.2); color: #ef9a9a; }
+  .badge-homebrew { background: rgba(253,185,19,0.15); color: #fbbf24; }
+  .badge-pypi { background: rgba(53,116,181,0.2); color: #90caf9; }
+  .badge-mcp { background: rgba(108,138,255,0.2); color: #a5b4fc; }
+  .badge-browser-extension { background: rgba(244,114,182,0.2); color: #f9a8d4; }
+  .badge-rubygems { background: rgba(227,65,52,0.2); color: #ef9a9a; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active {
+    color: var(--text);
+    background: var(--accent-glow);
+    border-color: var(--accent);
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .cards { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📦 Bumblebee Inventory Dashboard</h1>
+<p class="subtitle">Package inventory scan — NDJSON viewer</p>
+
+<!-- Drop zone -->
+<div class="drop-zone" id="dropZone">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="17 8 12 3 7 8"/>
+    <line x1="12" y1="3" x2="12" y2="15"/>
+  </svg>
+  <p>Drop a <strong>bumblebee scan</strong> NDJSON file here, or click to select</p>
+  <p style="font-size:0.8rem;margin-top:4px;">(JSONL file from <code>bumblebee scan &gt; inventory.jsonl</code>)</p>
+  <input type="file" id="fileInput" accept=".jsonl,.ndjson,.json">
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+  <div class="cards" id="summaryCards"></div>
+
+  <div class="chart-row">
+    <div class="chart-box"><canvas id="ecoChart"></canvas></div>
+    <div class="chart-box"><canvas id="confChart"></canvas></div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="section" id="detailSection">
+    <div class="section-header">
+      <h2 id="detailTitle">All Packages</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="search-box" id="searchBox" placeholder="Search packages..." oninput="renderTable()">
+        <span class="count-badge" id="rowCount"></span>
+      </div>
+    </div>
+    <div class="filter-bar" id="filterBar"></div>
+    <div class="table-wrap"><table><tbody id="tableBody"></tbody></table></div>
+  </div>
+</div>
+
+<script>
+// ─── data ───
+let allRecords = [];
+let packages = [];
+let summary = null;
+let activeTab = 'all';
+let sortCol = null;
+let sortDir = 1;
+let ecosystemFilter = null;
+
+const ECO_COLORS = {
+  npm: '#ef4444',
+  homebrew: '#fbbf24',
+  pypi: '#60a5fa',
+  mcp: '#818cf8',
+  'browser-extension': '#f472b6',
+  rubygems: '#ef9a9a',
+  go: '#00add8',
+  packagist: '#4a5568',
+  'editor-extension': '#34d399',
+  'agent-skill': '#a78bfa',
+};
+
+const ECO_LABELS = {
+  npm: 'npm / Yarn / pnpm / Bun',
+  homebrew: 'Homebrew',
+  pypi: 'PyPI',
+  mcp: 'MCP Servers',
+  'browser-extension': 'Browser Extensions',
+  rubygems: 'RubyGems',
+  go: 'Go Modules',
+  packagist: 'Composer / Packagist',
+  'editor-extension': 'Editor Extensions',
+  'agent-skill': 'Agent Skills',
+};
+
+// ─── file handling ───
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    parseData(text);
+    dropZone.classList.add('loaded');
+    dropZone.querySelector('p').textContent = `Loaded: ${file.name}`;
+  };
+  reader.readAsText(file);
+}
+
+function parseData(text) {
+  allRecords = [];
+  packages = [];
+  summary = null;
+  for (const line of text.split('\n').filter(Boolean)) {
+    try {
+      const r = JSON.parse(line);
+      allRecords.push(r);
+      if (r.record_type === 'package') packages.push(r);
+      else if (r.record_type === 'scan_summary') summary = r;
+    } catch (_) {}
+  }
+  document.getElementById('dashboard').classList.add('show');
+  buildDashboard();
+}
+
+// ─── dashboard ───
+function buildDashboard() {
+  buildSummaryCards();
+  buildCharts();
+  buildTabs();
+  ecosystemFilter = null;
+  activeTab = 'all';
+  renderTable();
+}
+
+function buildSummaryCards() {
+  const eco = {};
+  const conf = {};
+  let direct = 0;
+  for (const p of packages) {
+    eco[p.ecosystem] = (eco[p.ecosystem] || 0) + 1;
+    conf[p.confidence] = (conf[p.confidence] || 0) + 1;
+    if (p.direct_dependency) direct++;
+  }
+
+  const cards = [
+    { value: packages.length.toLocaleString(), label: 'Total Packages', sub: `${Object.keys(eco).length} ecosystems` },
+    { value: Object.values(eco).sort((a,b)=>b-a)[0].toLocaleString(), label: 'Largest Ecosystem', sub: Object.keys(eco).reduce((a,b)=>eco[a]>eco[b]?a:b) },
+    { value: (conf.high || 0).toLocaleString(), label: 'High Confidence', sub: `${Math.round((conf.high||0)/packages.length*100)}% of total` },
+    { value: ((conf.medium||0)+(conf.low||0)).toLocaleString(), label: 'Low/Medium Confidence', sub: `medium=${conf.medium||0}, low=${conf.low||0}` },
+    { value: direct.toLocaleString(), label: 'Direct Dependencies', sub: `${Math.round(direct/packages.length*100)}% of total` },
+    { value: packages.filter(p => p.has_lifecycle_scripts).length, label: 'With Lifecycle Scripts', sub: 'Potential risk signal' },
+  ];
+
+  document.getElementById('summaryCards').innerHTML = cards.map(c => `
+    <div class="card"><div class="value">${c.value}</div><div class="label">${c.label}</div><div class="sub">${c.sub}</div></div>
+  `).join('');
+}
+
+function buildCharts() {
+  const ecoCounts = {};
+  for (const p of packages) {
+    ecoCounts[p.ecosystem] = (ecoCounts[p.ecosystem] || 0) + 1;
+  }
+  const sorted = Object.entries(ecoCounts).sort((a,b)=>b[1]-a[1]);
+
+  new Chart(document.getElementById('ecoChart'), {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(([k]) => ECO_LABELS[k] || k),
+      datasets: [{
+        data: sorted.map(([,v]) => v),
+        backgroundColor: sorted.map(([k]) => ECO_COLORS[k] || '#666'),
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8fa3', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        title: { display: true, text: 'Packages by Ecosystem', color: '#e2e4f0', font: { size: 13 } }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('confChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['High', 'Medium', 'Low'],
+      datasets: [{
+        data: [
+          packages.filter(p=>p.confidence==='high').length,
+          packages.filter(p=>p.confidence==='medium').length,
+          packages.filter(p=>p.confidence==='low').length,
+        ],
+        backgroundColor: ['#34d399', '#fbbf24', '#fb923c'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8fa3', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        title: { display: true, text: 'Confidence Distribution', color: '#e2e4f0', font: { size: 13 } }
+      }
+    }
+  });
+}
+
+function buildTabs() {
+  const tabs = document.getElementById('tabs');
+  const ecosystems = [...new Set(packages.map(p => p.ecosystem))].sort();
+  const tabsHtml = [
+    `<div class="tab active" data-tab="all" onclick="switchTab('all', null)">📋 All (${packages.length.toLocaleString()})</div>`,
+    ...ecosystems.map(e => {
+      const count = packages.filter(p => p.ecosystem === e).length;
+      const icon = { npm: '📦', homebrew: '🍺', pypi: '🐍', mcp: '🔌', 'browser-extension': '🌐', rubygems: '💎', go: '🔷' }[e] || '📎';
+      return `<div class="tab" data-tab="${e}" onclick="switchTab('${e}', '${e}')">${icon} ${ECO_LABELS[e]||e} (${count.toLocaleString()})</div>`;
+    })
+  ].join('');
+  tabs.innerHTML = tabsHtml;
+}
+
+function switchTab(tab, eco) {
+  activeTab = tab;
+  ecosystemFilter = eco;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderTable();
+}
+
+function renderTable() {
+  const query = document.getElementById('searchBox').value.toLowerCase().trim();
+  let filtered = [...packages];
+
+  if (ecosystemFilter) {
+    filtered = filtered.filter(p => p.ecosystem === ecosystemFilter);
+  } else if (activeTab === 'low-confidence') {
+    filtered = filtered.filter(p => p.confidence === 'low');
+  }
+
+  if (query) {
+    filtered = filtered.filter(p =>
+      (p.package_name && p.package_name.toLowerCase().includes(query)) ||
+      (p.version && p.version.toLowerCase().includes(query)) ||
+      (p.source_file || '').toLowerCase().includes(query)
+    );
+  }
+
+  // sort
+  if (sortCol) {
+    filtered.sort((a, b) => {
+      let va = a[sortCol] || '', vb = b[sortCol] || '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return -1 * sortDir;
+      if (va > vb) return 1 * sortDir;
+      return 0;
+    });
+  }
+
+  document.getElementById('rowCount').textContent = `${filtered.length.toLocaleString()} records`;
+  const tbody = document.getElementById('tableBody');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No packages match your filter</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const ecoClass = `badge-${p.ecosystem}`;
+    const confClass = `conf-${p.confidence}`;
+    return `<tr>
+      <td><span class="badge ${ecoClass}">${ECO_LABELS[p.ecosystem] || p.ecosystem}</span></td>
+      <td><strong>${esc(p.package_name)}</strong> <span style="color:var(--text-dim)">${esc(p.version)}</span></td>
+      <td class="${confClass}">${p.confidence}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${esc(p.source_file)}">${esc(p.source_file || '')}</td>
+      <td>${p.source_type || '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  renderTable();
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
