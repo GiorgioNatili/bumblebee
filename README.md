@@ -89,6 +89,8 @@ tracked in `VERSION`.
 A pure Python 3 port lives on the [`python-port`](https://github.com/GiorgioNatili/bumblebee/tree/python-port) branch.
 Zero external dependencies — only the standard library.
 
+#### With pip (global install)
+
 ```sh
 # Switch to the python-port branch.
 git checkout python-port
@@ -105,6 +107,41 @@ python3 -m bumblebee version
 # Run the test suite.
 python3 -m pytest tests/
 ```
+
+#### With pipx (isolated environment)
+
+[pipx](https://pipx.pypa.io/) installs Python applications into their own
+isolated virtual environments, keeping global site-packages clean — ideal
+if you manage Python with Homebrew and don't want to pollute
+`$(brew --prefix)/lib/pythonX.Y/site-packages`.
+
+```sh
+# Switch to the python-port branch.
+git checkout python-port
+
+# Install into an isolated environment.
+pipx install .
+
+# Run.
+bumblebee scan --profile baseline
+
+# Or install directly from the remote branch (no local clone needed).
+pipx install git+https://github.com/GiorgioNatili/bumblebee.git@python-port
+
+# Run once without installing (ephemeral environment).
+pipx run git+https://github.com/GiorgioNatili/bumblebee.git@python-port scan --profile baseline
+
+# Upgrade the pipx install.
+pipx upgrade bumblebee
+
+# Uninstall.
+pipx uninstall bumblebee
+```
+
+Since Bumblebee has zero external dependencies, pipx's main benefit here
+is **environment isolation**: the app and its metadata live in
+`~/.local/pipx/venvs/` rather than in your Homebrew-managed site-packages,
+and you can remove it cleanly with `pipx uninstall`.
 
 The Python port implements the same three scan profiles, all 12 ecosystem
 scanners, the exposure-catalog matching engine, and the HTTP sink with
