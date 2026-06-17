@@ -155,6 +155,26 @@ Key differences from the Go build:
   the same semantics (serial walk, parallel parse).
 - Version can be overridden via the `BUMBLEBEE_VERSION` env var.
 
+See [CHANGELOG](CHANGELOG.md) for version history.
+
+### Browser dashboard
+
+Scan results can be viewed in a browser dashboard — a self-contained HTML
+file with summary cards, ecosystem and confidence pie charts, and a
+searchable/sortable table:
+
+```sh
+# Run a scan and open the dashboard automatically.
+bumblebee scan --profile baseline --view
+
+# Or generate a dashboard from saved output.
+bumblebee scan --profile baseline > inventory.jsonl
+# Then open tools/scan-viewer.html in your browser and drag inventory.jsonl onto it.
+```
+
+The dashboard is a single static file at [`tools/scan-viewer.html`](tools/scan-viewer.html).
+No server, no network, no dependencies.
+
 ### Self-test
 
 After installing, run a built-in end-to-end check against embedded
@@ -242,9 +262,9 @@ Package record:
   "record_id": "package:...",
   "schema_version": "0.1.0",
   "scanner_name": "bumblebee",
-  "scanner_version": "v0.1.1",
+  "scanner_version": "v0.2.0",
   "run_id": "9b1f0c2e4d5a6b7c8d9e0f1a2b3c4d5e",
-  "scan_time": "2026-05-15T18:22:01.482Z",
+  "scan_time": "2026-06-17T18:22:01.482Z",
   "endpoint": {
     "hostname": "alex-mbp",
     "os": "darwin",
@@ -287,9 +307,9 @@ Finding record (exposure-catalog match):
   "record_id": "finding:...",
   "schema_version": "0.1.0",
   "scanner_name": "bumblebee",
-  "scanner_version": "v0.1.1",
+  "scanner_version": "v0.2.0",
   "run_id": "3a8c7d1e9f0b2a4c6d8e0f1a2b3c4d5e",
-  "scan_time": "2026-05-15T18:22:01.482Z",
+  "scan_time": "2026-06-17T18:22:01.482Z",
   "endpoint": {
     "hostname": "alex-mbp",
     "os": "darwin",
