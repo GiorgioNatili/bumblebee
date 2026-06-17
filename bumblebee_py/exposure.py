@@ -15,8 +15,8 @@ import os
 import stat
 from typing import Optional
 
-from bumblebee import normalize
-from bumblebee.model import SCHEMA_VERSION, Record
+from bumblebee_py import normalize
+from bumblebee_py.model import SCHEMA_VERSION, Record
 
 
 class Entry:

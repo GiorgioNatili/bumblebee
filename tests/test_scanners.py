@@ -3,8 +3,8 @@ import json
 import os
 import tempfile
 
-from bumblebee.model import Record, Endpoint
-from bumblebee.ecosystems import npm, pypi
+from bumblebee_py.model import Record, Endpoint
+from bumblebee_py.ecosystems import npm, pypi
 
 
 BASE_RECORD = Record(

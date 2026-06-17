@@ -5,8 +5,8 @@ Editor extension scanner: VS Code, Cursor, Windsurf, VSCodium extensions.
 import json
 import os
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_EDITOR_EXTENSION, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_EDITOR_EXTENSION, Record
 
 ECOSYSTEM = ECOSYSTEM_EDITOR_EXTENSION
 

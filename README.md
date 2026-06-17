@@ -102,7 +102,7 @@ pip install .
 bumblebee scan --profile baseline
 
 # Or without installing, via the module directly.
-python3 -m bumblebee version
+python3 -m bumblebee_py version
 
 # Run the test suite.
 python3 -m pytest tests/
@@ -179,7 +179,7 @@ bumblebee scan --profile baseline > inventory.jsonl
 ```
 
 The dashboard is bundled with the package at
-[`bumblebee/scan-viewer.html`](bumblebee/scan-viewer.html).
+[`bumblebee_py/scan-viewer.html`](bumblebee_py/scan-viewer.html).
 No server, no network, no dependencies.
 
 ### Self-test

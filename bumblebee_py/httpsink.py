@@ -15,7 +15,7 @@ import time
 from typing import Optional
 from urllib.parse import urlparse
 
-from bumblebee.emitter import SinkStats
+from bumblebee_py.emitter import SinkStats
 
 _CONTENT_TYPE_NDJSON = "application/x-ndjson"
 _DEFAULT_BATCH_SIZE = 500

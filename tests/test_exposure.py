@@ -3,10 +3,10 @@ import json
 import tempfile
 import os
 
-from bumblebee.exposure import (
+from bumblebee_py.exposure import (
     Catalog, Entry, Match, load, load_file, parse, _build,
 )
-from bumblebee.model import Record, Endpoint
+from bumblebee_py.model import Record, Endpoint
 
 
 SAMPLE_CATALOG_JSON = json.dumps({

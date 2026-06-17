@@ -7,8 +7,8 @@ import os
 import re
 from typing import Optional
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_RUBYGEMS, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_RUBYGEMS, Record
 
 ECOSYSTEM = ECOSYSTEM_RUBYGEMS
 

@@ -7,8 +7,8 @@ import os
 import re
 from typing import Optional
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_MCP, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_MCP, Record
 
 ECOSYSTEM = ECOSYSTEM_MCP
 

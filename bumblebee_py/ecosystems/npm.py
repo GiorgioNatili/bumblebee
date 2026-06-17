@@ -7,9 +7,9 @@ import json
 import os
 from typing import Optional
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_NPM, Record
-from bumblebee import normalize
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_NPM, Record
+from bumblebee_py import normalize
 
 
 ECOSYSTEM = ECOSYSTEM_NPM

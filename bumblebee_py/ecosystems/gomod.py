@@ -5,8 +5,8 @@ Go module scanner: go.sum and go.mod files.
 import os
 from typing import Optional
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_GO, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_GO, Record
 
 ECOSYSTEM = ECOSYSTEM_GO
 

@@ -7,7 +7,7 @@
 - **`--view` flag not found with pipx installs** — `scan-viewer.html` was
   bundled but the template path lookup had a broken fallback that checked
   the same path twice. Removed the duplicate check; the file is now found
-  correctly at `bumblebee/scan-viewer.html` (always shipped with the package).
+  correctly at `bumblebee_py/scan-viewer.html` (always shipped with the package).
 
 ## 0.2.0 (2026-06-17)
 
@@ -19,7 +19,7 @@
   ```sh
   bumblebee scan --profile baseline --view
   ```
-- **Browser dashboard** (`bumblebee/scan-viewer.html`) — A single HTML file that
+- **Browser dashboard** (`bumblebee_py/scan-viewer.html`) — A single HTML file that
   renders NDJSON scan output. Can be used standalone (drag-drop a `.jsonl`
   file) or auto-launched via `--view`.
 

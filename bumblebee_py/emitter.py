@@ -12,7 +12,7 @@ import time
 from io import TextIOBase
 from typing import Any, Optional
 
-from bumblebee.model import (
+from bumblebee_py.model import (
     RECORD_TYPE_DIAGNOSTIC,
     Record, Finding, ScanSummary, Diagnostic,
 )

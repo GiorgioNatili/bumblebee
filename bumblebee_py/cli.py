@@ -18,14 +18,14 @@ import time
 import webbrowser
 from typing import Optional
 
-from bumblebee import model
-from bumblebee import endpoint
-from bumblebee import version as bversion
-from bumblebee.emitter import Emitter
-from bumblebee.httpsink import HTTPSink, HTTPConfig, HTTPAuth, validate_http_config
-from bumblebee.exposure import load as load_catalog
-from bumblebee.scanner import Config as ScannerConfig, Root, run as run_scan
-from bumblebee.roots import RootsOpts, resolve_roots
+from bumblebee_py import model
+from bumblebee_py import endpoint
+from bumblebee_py import version as bversion
+from bumblebee_py.emitter import Emitter
+from bumblebee_py.httpsink import HTTPSink, HTTPConfig, HTTPAuth, validate_http_config
+from bumblebee_py.exposure import load as load_catalog
+from bumblebee_py.scanner import Config as ScannerConfig, Root, run as run_scan
+from bumblebee_py.roots import RootsOpts, resolve_roots
 
 
 def main(argv: Optional[list[str]] = None) -> int:

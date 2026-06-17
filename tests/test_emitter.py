@@ -1,8 +1,8 @@
 """Tests for the NDJSON emitter."""
 import io
 
-from bumblebee.emitter import Emitter
-from bumblebee.model import Record, Finding, Endpoint
+from bumblebee_py.emitter import Emitter
+from bumblebee_py.model import Record, Finding, Endpoint
 
 
 def make_record(**kw):
@@ -73,7 +73,7 @@ class TestEmitter:
         assert "something went wrong" in output
 
     def test_emit_summary(self):
-        from bumblebee.model import ScanSummary
+        from bumblebee_py.model import ScanSummary
         buf = io.StringIO()
         e = Emitter(buf, io.StringIO(), "run-5")
         s = ScanSummary(profile="baseline", status="complete")

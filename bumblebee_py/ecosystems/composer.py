@@ -6,8 +6,8 @@ import json
 import os
 from typing import Optional
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_PACKAGIST, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_PACKAGIST, Record
 
 ECOSYSTEM = ECOSYSTEM_PACKAGIST
 

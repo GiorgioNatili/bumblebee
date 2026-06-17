@@ -7,7 +7,7 @@ import sys
 import tempfile
 from unittest.mock import patch, MagicMock
 
-from bumblebee import cli
+from bumblebee_py import cli
 
 
 class TestOpenViewer:

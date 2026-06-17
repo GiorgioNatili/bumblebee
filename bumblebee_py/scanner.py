@@ -12,16 +12,16 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Optional, Callable
 
-from bumblebee.model import (
+from bumblebee_py.model import (
     ECOSYSTEM_NPM, ECOSYSTEM_PYPI, ECOSYSTEM_GO, ECOSYSTEM_RUBYGEMS,
     ECOSYSTEM_PACKAGIST, ECOSYSTEM_MCP, ECOSYSTEM_EDITOR_EXTENSION,
     ECOSYSTEM_BROWSER_EXTENSION, ECOSYSTEM_HOMEBREW, ECOSYSTEM_AGENT_SKILL,
     ROOT_KIND_UNKNOWN, Record, Finding, RECORD_TYPE_PACKAGE,
     RECORD_TYPE_FINDING, FINDING_TYPE_PACKAGE_EXPOSURE,
 )
-from bumblebee import walker
-from bumblebee.emitter import Emitter
-from bumblebee.exposure import Catalog
+from bumblebee_py import walker
+from bumblebee_py.emitter import Emitter
+from bumblebee_py.exposure import Catalog
 
 
 @dataclass
@@ -62,7 +62,7 @@ class Result:
 
 def run(ctx, cfg: Config) -> tuple[Result, Optional[Exception]]:
     """Execute one scan. Returns (Result, error)."""
-    from bumblebee.ecosystems import (
+    from bumblebee_py.ecosystems import (
         npm, pypi, gomod, rubygems, composer, mcp,
         bun, pnpm, yarn, editorext, browserext, homebrew, skills,
     )

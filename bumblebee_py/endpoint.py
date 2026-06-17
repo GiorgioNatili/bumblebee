@@ -10,7 +10,7 @@ import os
 import platform
 import socket
 
-from bumblebee.model import Endpoint
+from bumblebee_py.model import Endpoint
 
 
 def current(device_id: str = "") -> Endpoint:

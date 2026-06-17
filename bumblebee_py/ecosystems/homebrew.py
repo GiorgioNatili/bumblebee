@@ -5,8 +5,8 @@ Homebrew scanner: formula INSTALL_RECEIPT.json and cask metadata.
 import json
 import os
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_HOMEBREW, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_HOMEBREW, Record
 
 ECOSYSTEM = ECOSYSTEM_HOMEBREW
 

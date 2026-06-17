@@ -1,8 +1,8 @@
 """Tests for model module — stable IDs, serialization, constants."""
 import json
 
-from bumblebee import model
-from bumblebee.model import (
+from bumblebee_py import model
+from bumblebee_py.model import (
     Record, Finding, ScanSummary, Diagnostic, Endpoint,
 )
 
@@ -73,7 +73,7 @@ class TestScanSummaryStableID:
         assert sid.startswith("scan_summary:")
 
     def test_summary_with_roots(self):
-        from bumblebee.model import SummaryRoot
+        from bumblebee_py.model import SummaryRoot
         s = ScanSummary(profile="baseline", status="complete",
                         scan_time="2024-01-01T00:00:00Z",
                         end_time="2024-01-01T00:00:01Z",
@@ -161,34 +161,34 @@ class TestRecordSerialization:
 
 class TestNormalize:
     def test_npm_basic(self):
-        from bumblebee import normalize
+        from bumblebee_py import normalize
         assert normalize.npm("Left-Pad") == "left-pad"
         assert normalize.npm("  LEFT-PAD  ") == "left-pad"
 
     def test_npm_scoped(self):
-        from bumblebee import normalize
+        from bumblebee_py import normalize
         assert normalize.npm("@TanStack/Query-Core") == "@tanstack/query-core"
 
     def test_pypi_basic(self):
-        from bumblebee import normalize
+        from bumblebee_py import normalize
         assert normalize.pypi("Requests") == "requests"
         assert normalize.pypi("  REQUEST_S  ") == "request-s"
 
     def test_pypi_pep503(self):
-        from bumblebee import normalize
+        from bumblebee_py import normalize
         assert normalize.pypi("My.Super_Package") == "my-super-package"
         assert normalize.pypi("---hello---") == "hello"
 
 
 class TestEndpoint:
     def test_current_returns_endpoint(self):
-        from bumblebee import endpoint
+        from bumblebee_py import endpoint
         ep = endpoint.current()
         assert ep.os in ("darwin", "linux")
         assert ep.arch != ""
         assert ep.hostname != ""
 
     def test_device_id(self):
-        from bumblebee import endpoint
+        from bumblebee_py import endpoint
         ep = endpoint.current("my-device-id")
         assert ep.device_id == "my-device-id"

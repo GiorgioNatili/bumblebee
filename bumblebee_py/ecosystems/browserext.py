@@ -6,8 +6,8 @@ import json
 import os
 import re
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_BROWSER_EXTENSION, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_BROWSER_EXTENSION, Record
 
 ECOSYSTEM = ECOSYSTEM_BROWSER_EXTENSION
 

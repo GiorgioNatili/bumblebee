@@ -13,7 +13,7 @@ import platform
 from dataclasses import dataclass, field
 from typing import Optional
 
-from bumblebee.model import (
+from bumblebee_py.model import (
     PROFILE_BASELINE, PROFILE_PROJECT, PROFILE_DEEP,
     ROOT_KIND_GLOBAL_PACKAGE, ROOT_KIND_USER_PACKAGE,
     ROOT_KIND_PROJECT, ROOT_KIND_EDITOR_EXTENSION,
@@ -21,7 +21,7 @@ from bumblebee.model import (
     ROOT_KIND_AGENT_SKILL, ROOT_KIND_HOMEBREW,
     ROOT_KIND_DEEP_HOME, ROOT_KIND_UNKNOWN,
 )
-from bumblebee.scanner import Root
+from bumblebee_py.scanner import Root
 
 
 @dataclass

@@ -5,8 +5,8 @@ Agent skills scanner: skill lockfiles (.skill-lock.json).
 import json
 import os
 
-from bumblebee.ecosystems.base import BaseScanner
-from bumblebee.model import ECOSYSTEM_AGENT_SKILL, Record
+from bumblebee_py.ecosystems.base import BaseScanner
+from bumblebee_py.model import ECOSYSTEM_AGENT_SKILL, Record
 
 ECOSYSTEM = ECOSYSTEM_AGENT_SKILL
 

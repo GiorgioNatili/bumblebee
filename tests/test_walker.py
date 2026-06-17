@@ -2,7 +2,7 @@
 import os
 import tempfile
 
-from bumblebee import walker
+from bumblebee_py import walker
 
 
 def test_walk_simple_directory():
