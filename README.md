@@ -154,6 +154,12 @@ Key differences from the Go build:
 - Concurrency uses `ThreadPoolExecutor` instead of goroutines, with
   the same semantics (serial walk, parallel parse).
 - Version can be overridden via the `BUMBLEBEE_VERSION` env var.
+- `--max-duration` and `--http-timeout` accept **float seconds** (e.g.
+  `--max-duration 600` for 10 minutes), not Go's `time.Duration` strings
+  like `"10m"`.
+- `--root` also accepts the short form `-r`. Comma-separated values
+  (e.g. `--root a,b`) are **not** supported — repeat the flag:
+  `--root a --root b`.
 
 See [CHANGELOG](CHANGELOG.md) for version history.
 
@@ -208,8 +214,8 @@ receivers can keep populations separate.
 ## Quick start
 
 ```sh
-# Baseline global inventory.
-bumblebee scan --profile baseline > inventory.ndjson
+# Baseline global inventory and open the browser dashboard.
+bumblebee scan --profile baseline --view
 
 # Daily project sweep with explicit roots.
 bumblebee scan --profile project \
@@ -218,14 +224,14 @@ bumblebee scan --profile project \
 
 # Limit a run to selected emitted ecosystems.
 bumblebee scan --profile baseline \
-  --ecosystem npm,pypi \
-  --ecosystem go
+  --ecosystem npm \
+  --ecosystem pypi
 
 # On-demand exposure scan against a published advisory.
 bumblebee scan --profile deep \
   --root "$HOME" \
   --exposure-catalog ./catalog.json \
-  --max-duration 10m
+  --max-duration 600
 ```
 
 Preview the resolved roots without scanning:
@@ -240,7 +246,9 @@ optional for the other profiles. `--ecosystem` is repeatable and
 comma-separated. `--exposure-catalog` accepts a JSON file or a directory
 of `*.json` catalogs (merged non-recursively, all files must share
 `schema_version`). `--findings-only` requires `--exposure-catalog` and
-suppresses package records while keeping findings. `bumblebee scan --help`
+suppresses package records while keeping findings. `--view` opens a
+browser dashboard showing summary cards, charts, and a searchable table
+of all discovered packages. `bumblebee scan --help`
 lists every flag.
 
 ## Output
