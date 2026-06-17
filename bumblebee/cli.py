@@ -90,8 +90,9 @@ def _run_scan(args: list[str]) -> int:
     opts.profile = profile
 
     # Parse ecosystem filter
-    ecosystem_filter = _parse_ecosystem_filter(opts.ecosystems)
-    if ecosystem_filter is None:
+    ecosystem_filter, parse_err = _parse_ecosystem_filter(opts.ecosystems)
+    if parse_err:
+        print(parse_err, file=sys.stderr)
         return 2
 
     # findings-only requires catalog
@@ -334,10 +335,13 @@ def _add_scan_flags(parser: argparse.ArgumentParser):
                         help="env var holding a stable device/endpoint id")
 
 
-def _parse_ecosystem_filter(values: list[str]) -> Optional[set[str]]:
-    """Parse --ecosystem values into a set, or None for all."""
+def _parse_ecosystem_filter(values: list[str]) -> tuple[Optional[set[str]], Optional[str]]:
+    """Parse --ecosystem values into a set, or None for all.
+
+    Returns (ecosystem_set_or_None, error_string_or_None).
+    """
     if not values:
-        return None
+        return None, None
     result = set()
     invalid = []
     for value in values:
@@ -351,10 +355,10 @@ def _parse_ecosystem_filter(values: list[str]) -> Optional[set[str]]:
             result.add(part)
     if invalid:
         valid = ", ".join(model.supported_ecosystems())
-        print(f"invalid --ecosystem value(s): {', '.join(sorted(invalid))} "
-              f"(allowed: {valid})", file=sys.stderr)
-        return None
-    return result if result else None
+        err = (f"invalid --ecosystem value(s): {', '.join(sorted(invalid))} "
+               f"(allowed: {valid})")
+        return None, err
+    return (result if result else None), None
 
 
 def _resolve_device_id(env_name: str) -> tuple[str, str]:
