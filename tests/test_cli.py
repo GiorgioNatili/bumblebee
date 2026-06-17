@@ -252,3 +252,139 @@ class TestScanViewFlag:
         assert "Report saved" in stderr.getvalue(), stderr.getvalue()
         # Browser is NOT opened
         assert len(browser_opened) == 0, "browser should not open without --view"
+
+
+class TestEmbeddedReportRendering:
+    """Tests that the generated report renders correctly in a browser.
+
+    Validates the JavaScript structure has no temporal-dead-zone issues
+    and the embedded data survives the round-trip.
+    """
+
+    def _read_template(self):
+        with open(os.path.join(
+                os.path.dirname(cli.__file__), "scan-viewer.html")) as f:
+            return f.read()
+
+    def test_eco_constants_before_parse_data(self):
+        """ECO_COLORS and ECO_LABELS must be defined before parseData call.
+
+        const declarations are in the temporal dead zone until the
+        declaration is reached. If parseData (which calls buildCharts,
+        which references ECO_COLORS) runs first, a ReferenceError occurs.
+        """
+        src = self._read_template()
+        pos_colors = src.index("const ECO_COLORS")
+        pos_labels = src.index("const ECO_LABELS")
+        pos_parse = src.index("parseData(window.__BUMBLEBEE_DATA__)")
+        assert pos_colors < pos_parse, \
+            "ECO_COLORS declared after parseData call — temporal dead zone crash!"
+        assert pos_labels < pos_parse, \
+            "ECO_LABELS declared after parseData call — temporal dead zone crash!"
+
+    def test_template_first_script_is_chartjs(self):
+        """First <script> in the template is Chart.js CDN (gets replaced by injection).
+
+        The injection replaces the first <script> tag with the data script.
+        Chart.js must be the original first script for the injection to work
+        correctly.
+        """
+        src = self._read_template()
+        first_script = src.find("<script")
+        assert first_script >= 0
+        chart_js_snippet = src[first_script:first_script + 80]
+        assert "chart.js" in chart_js_snippet, \
+            f"first <script> should be Chart.js CDN, got: {chart_js_snippet[:60]}"
+
+    def test_template_second_script_contains_app_code(self):
+        """Second <script> contains the full app code with parseData."""
+        src = self._read_template()
+        first_script = src.find("<script")
+        second_script = src.find("<script", first_script + 7)
+        assert second_script >= 0
+        # Find the closing </script> tag for the second script
+        second_end = src.find("</script>", second_script)
+        second_content = src[second_script:second_end]
+        assert "parseData" in second_content, \
+            "second <script> should contain parseData (app code)"
+
+    def test_generated_report_round_trip(self):
+        """Generate a report and validate the HTML would render in a browser."""
+        import tempfile as _tf
+        import json as _json
+
+        sample = (
+            '{"record_type":"package","ecosystem":"npm",'
+            '"package_name":"a","version":"1.0"}\n'
+            '{"record_type":"package","ecosystem":"npm",'
+            '"package_name":"b","version":"2.0"}\n'
+            '{"record_type":"scan_summary","status":"complete"}\n'
+        )
+        jsonl = _tf.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
+        jsonl.write(sample)
+        jsonl.close()
+
+        try:
+            with _tf.TemporaryDirectory() as tmp:
+                report_dir = os.path.join(tmp, "reports")
+                os.makedirs(report_dir)
+                with patch("os.path.isfile", return_value=True), \
+                     patch("bumblebee_py.cli._ensure_report_dir",
+                           return_value=report_dir):
+                    result = cli._generate_report(jsonl.name)
+
+                assert result is not None
+                with open(result) as f:
+                    html = f.read()
+
+                # __BUMBLEBEE_DATA__ appears 3 times:
+                #   1. injected data script (definition)
+                #   2. app code if-check: "if (window.__BUMBLEBEE_DATA__)"
+                #   3. app code call: "parseData(window.__BUMBLEBEE_DATA__)"
+                data_refs = html.count("__BUMBLEBEE_DATA__")
+                assert data_refs == 3, \
+                    f"expected 3 __BUMBLEBEE_DATA__ refs, got {data_refs}"
+
+                # Extract the data string
+                import re as _re
+                m = _re.search(
+                    r'__BUMBLEBEE_DATA__ = (.+?);</script>',
+                    html, _re.DOTALL
+                )
+                assert m, "no __BUMBLEBEE_DATA__ assignment"
+                js_literal = m.group(1)
+
+                # Must be a valid JS double-quoted string
+                assert js_literal.startswith('"') and js_literal.endswith('"')
+
+                # No actual newlines (would be JS SyntaxError)
+                assert '\n' not in js_literal, \
+                    "actual newline inside JS string — SyntaxError in browser!"
+
+                # Escaped newlines present
+                assert '\\n' in js_literal, \
+                    "no \\n escape sequences — split will find no line breaks"
+
+                # Simulate JS unescaping and verify data
+                js_val = js_literal[1:-1]
+                js_val = (js_val
+                    .replace('\\"', '"')
+                    .replace('\\\\', '\\')
+                    .replace('\\n', '\n'))
+                lines = [l for l in js_val.split('\n') if l.strip()]
+                records = [_json.loads(l) for l in lines]
+                pkgs = [r for r in records
+                        if r.get("record_type") == "package"]
+                assert len(pkgs) == 2, f"expected 2 packages, got {len(pkgs)}"
+
+                # Chart.js script still present
+                assert "chart.js" in html, \
+                    "Chart.js script tag missing after injection"
+
+                # App code present
+                assert "function parseData" in html
+                assert "const ECO_COLORS" in html
+                assert "const ECO_LABELS" in html
+
+        finally:
+            os.unlink(jsonl.name)

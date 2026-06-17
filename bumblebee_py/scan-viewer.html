@@ -280,11 +280,6 @@ let sortCol = null;
 let sortDir = 1;
 let ecosystemFilter = null;
 
-// Auto-load embedded data (injected by bumblebee --view)
-if (window.__BUMBLEBEE_DATA__) {
-  parseData(window.__BUMBLEBEE_DATA__);
-}
-
 const ECO_COLORS = {
   npm: '#ef4444',
   homebrew: '#fbbf24',
@@ -310,6 +305,11 @@ const ECO_LABELS = {
   'editor-extension': 'Editor Extensions',
   'agent-skill': 'Agent Skills',
 };
+
+// Auto-load embedded data (injected by bumblebee --view)
+if (window.__BUMBLEBEE_DATA__) {
+  parseData(window.__BUMBLEBEE_DATA__);
+}
 
 // ─── file handling ───
 const dropZone = document.getElementById('dropZone');
