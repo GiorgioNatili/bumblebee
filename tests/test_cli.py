@@ -159,9 +159,8 @@ class TestGenerateReport:
             assert "__BUMBLEBEE_DATA__" in output_html
 
             # 3. Simulate what the browser does with the embedded JS string:
-            #    - Extract the JS string literal: window.__BUMBLEBEE_DATA__ = "...";
-            #    - Unescape JS escapes: \" becomes ", \\ becomes \
-            #    - Split by actual newlines and parse each line as JSON
+            #    Extract the JS string literal, unescape JS escapes,
+            #    split by newlines, and parse each line as JSON.
             import re as _re
             m = _re.search(
                 r'__BUMBLEBEE_DATA__ = (.+?);</script>',
@@ -170,12 +169,24 @@ class TestGenerateReport:
             assert m is not None, "could not find __BUMBLEBEE_DATA__ assignment"
             js_literal = m.group(1)
 
-            # Strip outer double quotes
+            # The JS string literal is double-quoted: "content"
             assert js_literal.startswith('"') and js_literal.endswith('"')
-            js_content = js_literal[1:-1]
 
-            # Simulate JS string unescaping: \" → ", \\ → \ (backslash)
-            js_unescaped = js_content.replace('\\"', '"')
+            # Verify NO actual newlines inside the JS string literal
+            # (actual newlines would be a JS SyntaxError)
+            assert '\n' not in js_literal, \
+                "actual newline found inside JS string literal - SyntaxError in browser!"
+
+            # Verify that \\n (escaped newline sequences) exist
+            assert '\\n' in js_literal, \
+                "no escaped newlines (\\n) found - JS won't create line breaks"
+
+            # Simulate JS string unescaping:
+            js_content = js_literal[1:-1]          # strip outer quotes
+            js_unescaped = (js_content
+                .replace('\\"', '"')                # \" → "
+                .replace('\\\\', '\\')              # \\ → \
+                .replace('\\n', '\n'))              # \n → newline
 
             # Split by actual newlines and parse each JSON line
             lines = [l for l in js_unescaped.split("\n") if l.strip()]
@@ -185,7 +196,7 @@ class TestGenerateReport:
                     records.append(json.loads(line))
                 except json.JSONDecodeError as e:
                     assert False, \
-                        f"JSON parse error on line {line[:80]!r}: {e}"
+                        f"JSON parse error on {line[:80]!r}: {e}"
 
             packages = [r for r in records
                         if r.get("record_type") == "package"]

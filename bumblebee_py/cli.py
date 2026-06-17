@@ -339,8 +339,17 @@ def _generate_report(jsonl_path: str) -> Optional[str]:
         print(f"read viewer template: {e}", file=sys.stderr)
         return None
 
-    # Embed the JSONL data into the HTML
-    escaped = jsonl_data.replace("\\", "\\\\").replace('"', '\\"').replace("</", "<\\/")
+    # Embed the JSONL data into the HTML.
+    # Escape for a JS double-quoted string literal:
+    #   \ → \\   (backslash)
+    #   " → \"   (double quote)
+    #   \n → \n  (newline — JS interprets \n as newline char, split('\n') then works)
+    #   </ → <\/ (prevent closing the surrounding <script> tag)
+    escaped = (jsonl_data
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("</", "<\\/"))
     data_script = f'<script>window.__BUMBLEBEE_DATA__ = "{escaped}";</script>'
     html = html.replace("<script>", data_script + "\n<script>", 1)
 
