@@ -1292,10 +1292,19 @@ function renderTable() {
             );
             if (finding) {
               const sevClass = `badge-${(finding.severity || '').toLowerCase()}`;
+              const fUrl = finding.url || '';
+              let urlHtml = '';
+              if (fUrl) {
+                urlHtml = `<span style="font-weight:500;">Advisory URL:</span><span><a href="${esc(fUrl)}" target="_blank" style="color:var(--accent);">${esc(fUrl)}</a></span>`;
+              } else {
+                urlHtml = `<span style="font-weight:500;">Advisory URL:</span><span style="font-size:0.72rem;color:var(--text-dim);">No advisory URL available in this snapshot</span>`;
+              }
               return `<span style="font-weight:500;color:var(--red);">Potential Exposure:</span><span style="color:var(--red);">YES</span>
               <span style="font-weight:500;">Severity:</span><span><span class="badge ${sevClass}">${esc(finding.severity)}</span></span>
               <span style="font-weight:500;">Catalog:</span><span>${esc(finding.catalog_id)} — ${esc(finding.catalog_name)}</span>
               <span style="font-weight:500;">Evidence:</span><span style="font-style:italic;">${esc(finding.evidence)}</span>
+              <span style="font-weight:500;margin-top:2px;">Match basis:</span><span style="font-size:0.72rem;">exact ecosystem/package/version match</span>
+              ${urlHtml}
               <span style="font-weight:500;margin-top:2px;">Match basis:</span><span style="font-size:0.72rem;">exact ecosystem/package/version match</span>
               <span style="font-weight:500;">Limitation:</span><span style="font-size:0.72rem;color:var(--text-dim);">Package-presence evidence, not proof of compromise.</span>`;
             }
