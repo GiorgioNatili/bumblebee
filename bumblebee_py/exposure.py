@@ -122,12 +122,15 @@ def _load_dir(path: str, max_size: int) -> "Catalog":
     schema_version = ""
     first_source = ""
 
-    names = sorted(
-        n for n in os.listdir(path)
-        if n.lower().endswith(".json")
-    )
-    for name in names:
-        sub = os.path.join(path, name)
+    # Collect JSON files from this directory and all subdirectories
+    json_files = []
+    for rootdir, dirs, files in os.walk(path):
+        for name in files:
+            if name.lower().endswith(".json"):
+                json_files.append(os.path.join(rootdir, name))
+    json_files.sort()
+
+    for sub in json_files:
         # Resolve symlinks — skip if it's a directory
         try:
             info = os.stat(sub)
