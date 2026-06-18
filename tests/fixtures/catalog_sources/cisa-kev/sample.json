@@ -1,0 +1,18 @@
+{
+  "title": "CISA Known Exploited Vulnerabilities Catalog",
+  "catalogVersion": "2026.06.16",
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-2023-12345",
+      "vendorProject": "TestVendor",
+      "product": "TestProduct",
+      "vulnerabilityName": "Test KEV entry",
+      "dateAdded": "2023-01-01",
+      "shortDescription": "A test CISA KEV entry",
+      "requiredAction": "Apply vendor patch",
+      "dueDate": "2023-01-15",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://example.test"
+    }
+  ]
+}

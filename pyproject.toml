@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bumblebee-py"
-version = "0.6.0"
+version = "0.6.1"
 description = "Read-only supply-chain incident-response inventory collector for macOS/Linux developer endpoints"
 readme = "README.md"
 license = {file = "LICENSE"}

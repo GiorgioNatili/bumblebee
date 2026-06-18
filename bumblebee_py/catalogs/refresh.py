@@ -1,8 +1,8 @@
 """
-``bumblebee intel refresh`` subcommand.
+``bumblebee catalog refresh`` subcommand.
 
-Fetches OSV malicious-package data and writes a local Bumblebee
-exposure catalog.
+Fetches threat-intel data from upstream sources (OpenSSF, GHSA, CISA KEV)
+and writes local Bumblebee exposure catalogs.
 """
 
 import argparse
@@ -13,11 +13,11 @@ import time
 from typing import Optional
 
 from bumblebee_py.catalogs import osv as _osv
-from bumblebee_py.intel import catalog as _catalog
+from bumblebee_py.catalogs import catalog as _catalog
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    """Entry point for ``bumblebee intel refresh``.
+    """Entry point for ``bumblebee catalog refresh``.
 
     Returns exit code.
     """
@@ -25,17 +25,20 @@ def main(argv: Optional[list[str]] = None) -> int:
         argv = sys.argv[1:]
 
     parser = argparse.ArgumentParser(
-        prog="bumblebee intel refresh",
-        description="Fetch OSV malicious-package data and refresh local exposure catalogs.",
+        prog="bumblebee catalog refresh",
+        description="Fetch catalog data from a threat-intel source and write a local exposure catalog.",
     )
     parser.add_argument(
         "--output", "-o", default="",
         help="Output path for the generated catalog file (default: stdout)",
     )
     parser.add_argument(
-        "--source", default="",
-        help="Source URL, local file path, or 'osv-malicious' for OSSF per-ecosystem "
-             f"fetch (default: per-ecosystem fetch from OSSF malicious-packages repo)",
+        "--source", default="openssf",
+        help="Source ID: openssf, ghsa, cisa-kev. Or a local file path.",
+    )
+    parser.add_argument(
+        "--local-source", default="",
+        help="Use this local file instead of fetching from the upstream URL",
     )
     parser.add_argument(
         "--dry-run", action="store_true", default=False,
@@ -50,7 +53,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     # Source aliases: map shorthand names to real source locations
     source = opts.source.lower() if opts.source else ""
-    if source in ("openssf", "osv-malicious", ""):
+    if opts.local_source:
+        effective_source = opts.local_source
+        is_url = False
+    elif source in ("openssf", "osv-malicious", ""):
         effective_source = _osv.DEFAULT_SOURCE
     elif source == "ghsa":
         effective_source = "osv-malicious"
@@ -62,8 +68,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     else:
         effective_source = opts.source
 
-    is_ecosystem = (effective_source == "osv-malicious")
-    is_url = not is_ecosystem and not os.path.isfile(effective_source)
+    is_ecosystem = not opts.local_source and (effective_source == "osv-malicious")
+    is_url = not opts.local_source and not is_ecosystem and not os.path.isfile(effective_source)
     source_label = source if source else "openssf"
 
     if opts.verbose:
@@ -121,17 +127,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         }
         print(json.dumps(catalog, indent=2, ensure_ascii=False))
         if opts.verbose:
-            print(f"[intel] wrote {stats['entries_emitted']} entries to stdout",
+            print(f"[catalog] wrote {stats['entries_emitted']} entries to stdout",
                   file=sys.stderr)
         return 0
 
     try:
         _catalog.write_catalog(opts.output, catalog_entries, metadata=metadata)
     except (OSError, ValueError) as e:
-        print(f"[intel] write error: {e}", file=sys.stderr)
+        print(f"[catalog] write error: {e}", file=sys.stderr)
         return 1
 
     if opts.verbose:
-        print(f"[intel] wrote {stats['entries_emitted']} entries to {opts.output}",
+        print(f"[catalog] wrote {stats['entries_emitted']} entries to {opts.output}",
               file=sys.stderr)
     return 0
