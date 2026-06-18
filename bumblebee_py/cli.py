@@ -406,7 +406,7 @@ def _run_intel(args: list[str]) -> int:
     rest = args[1:]
 
     if subcommand == "refresh":
-        from bumblebee_py.intel.refresh import main as refresh_main
+        from bumblebee_py.catalogs.refresh import main as refresh_main
         return refresh_main(rest)
     else:
         print(f"unknown intel subcommand {subcommand!r} (try: refresh)",

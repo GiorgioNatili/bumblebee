@@ -12,7 +12,7 @@ import sys
 import time
 from typing import Optional
 
-from bumblebee_py.intel import osv as _osv
+from bumblebee_py.catalogs import osv as _osv
 from bumblebee_py.intel import catalog as _catalog
 
 
@@ -48,45 +48,62 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     opts = parser.parse_args(argv)
 
-    source = opts.source or _osv.DEFAULT_SOURCE
-    is_ecosystem_fetch = (source == "osv-malicious")
-    is_url = not is_ecosystem_fetch and not os.path.isfile(source)
+    # Source aliases: map shorthand names to real source locations
+    source = opts.source.lower() if opts.source else ""
+    if source in ("openssf", "osv-malicious", ""):
+        effective_source = _osv.DEFAULT_SOURCE
+    elif source == "ghsa":
+        effective_source = "osv-malicious"
+    elif source == "cisa-kev":
+        effective_source = (
+            "https://www.cisa.gov/sites/default/files/feeds/"
+            "known_exploited_vulnerabilities.json"
+        )
+    else:
+        effective_source = opts.source
+
+    is_ecosystem = (effective_source == "osv-malicious")
+    is_url = not is_ecosystem and not os.path.isfile(effective_source)
+    source_label = source if source else "openssf"
 
     if opts.verbose:
-        if is_ecosystem_fetch:
-            print(f"[intel] source: OSSF malicious-packages (per-ecosystem fetch)", file=sys.stderr)
-        else:
-            print(f"[intel] source: {source}", file=sys.stderr)
+        labels = {"openssf": "OpenSSF malicious-packages",
+                  "ghsa": "GitHub Advisory Database",
+                  "cisa-kev": "CISA KEV",
+                  "osv-malicious": "OSSF malicious-packages"}
+        label = labels.get(source_label, source_label)
+        print(f"[catalog] source: {label}", file=sys.stderr)
         if is_url:
-            print(f"[intel] fetching from upstream...", file=sys.stderr)
+            print(f"[catalog] fetching from upstream...", file=sys.stderr)
 
     try:
-        entries = _osv.fetch_osv_data(source)
+        entries = _osv.fetch_osv_data(effective_source)
     except (ValueError, OSError) as e:
-        print(f"[intel] error: {e}", file=sys.stderr)
+        print(f"[catalog] error: {e}", file=sys.stderr)
         return 1
 
     if opts.verbose:
-        print(f"[intel] processing {len(entries)} records...", file=sys.stderr)
+        print(f"[catalog] processing {len(entries)} records...", file=sys.stderr)
 
     catalog_entries, stats = _osv.convert_all(entries)
 
     if opts.verbose:
-        print(f"[intel] processed: {stats['records_processed']}, "
+        print(f"[catalog] processed: {stats['records_processed']}, "
               f"emitted: {stats['entries_emitted']}, "
               f"skipped: {stats['records_skipped']}",
               file=sys.stderr)
         if stats["skip_reasons"]:
-            print(f"[intel] skip reasons: {stats['skip_reasons']}", file=sys.stderr)
+            print(f"[catalog] skip reasons: {stats['skip_reasons']}", file=sys.stderr)
 
     if opts.dry_run:
         if opts.verbose:
-            print(f"[intel] dry-run: would write {stats['entries_emitted']} entries",
+            print(f"[catalog] dry-run: would write {stats['entries_emitted']} entries",
                   file=sys.stderr)
         return 0
 
     metadata = {
-        "source": source if is_url else os.path.abspath(source),
+        "source": source_label,
+        "source_url": effective_source if is_url else os.path.abspath(effective_source),
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "source_revision": "",
         "records_processed": stats["records_processed"],

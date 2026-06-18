@@ -95,9 +95,14 @@ def fetch_osv_data(source: str, timeout: int = 60) -> list[dict]:
         raise ValueError(f"invalid JSON from {source}: {e}") from e
 
     # OSV data can be a list of entries or {"entries": [...]}
+    # CISA KEV format: {"vulnerabilities": [...]}
     entries = data
-    if isinstance(data, dict) and "entries" in data:
-        entries = data["entries"]
+    if isinstance(data, dict):
+        if "entries" in data:
+            entries = data["entries"]
+        elif "vulnerabilities" in data:
+            # CISA KEV — wrap each vulnerability as an OSV-compatible entry
+            entries = _convert_cisa_kev(data)
 
     if not isinstance(entries, list):
         raise ValueError(f"expected a list of OSV entries, got {type(entries).__name__}")
@@ -313,3 +318,36 @@ def _skip_reason(entry: dict) -> str:
         return "no_explicit_versions"
 
     return "unknown"
+
+
+def _convert_cisa_kev(data: dict) -> list[dict]:
+    """Convert CISA KEV JSON to a list of OSV-compatible entries.
+    
+    CISA KEV entries have no 'affected' packages, so they produce
+    zero-length entries that are skipped during convert_all().
+    This is expected — CISA KEV is an overlay enrichment, not
+    a package/version source.
+    """
+    vulns = data.get("vulnerabilities", [])
+    out = []
+    for v in vulns:
+        cve_id = v.get("cveID", "")
+        if not cve_id:
+            continue
+        out.append({
+            "id": cve_id,
+            "summary": v.get("shortDescription", v.get("vulnerabilityName", "")),
+            "database_specific": {
+                "cisa_kev": True,
+                "vendorProject": v.get("vendorProject", ""),
+                "product": v.get("product", ""),
+                "dateAdded": v.get("dateAdded", ""),
+                "dueDate": v.get("dueDate", ""),
+                "knownRansomwareCampaignUse": v.get("knownRansomwareCampaignUse", ""),
+                "requiredAction": v.get("requiredAction", ""),
+                "notes": v.get("notes", ""),
+            },
+            "severity": [{"type": "KEV"}],
+            "affected": [],
+        })
+    return out
