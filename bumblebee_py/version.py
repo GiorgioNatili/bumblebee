@@ -18,7 +18,7 @@ def _read_version_file() -> str:
     try:
         return importlib.resources.read_text("bumblebee_py", "version.txt").strip()
     except Exception:
-        return "0.6.1"
+        return "0.6.2"
 
 
 _FALLBACK_VERSION = _read_version_file()
@@ -29,7 +29,7 @@ def current_version() -> str:
 
     Precedence:
     1. BUMBLEBEE_VERSION env var (settable via ``BUMBLEBEE_VERSION=...``)
-    2. The compiled-in version.txt default (``0.6.1``)
+    2. The compiled-in version.txt default (``0.6.2``)
     """
     env_ver = os.environ.get("BUMBLEBEE_VERSION", "").strip()
     if env_ver:
