@@ -296,11 +296,15 @@ class TestEmbeddedReportRendering:
         assert "buildEcoBars" in src, "eco bars missing"
         assert "renderFindings" in src, "findings renderer missing"
         assert "filterFindings" in src, "findings filter missing"
+        assert "renderActions" in src, "actions renderer missing"
+        assert "toggleRules" in src, "rules toggle missing"
         assert "updateActionGuide" in src, "action guide missing"
         assert "updateIntelStatus" in src, "intel status missing"
         assert "toggleDebug" in src, "debug toggle missing"
-        assert "Potential Exposures" in src or "potential exposure" in src.lower()
-        assert "What am I looking at" in src, "explainer panel missing"
+        assert "Potential Security Issues" in src or "potential exposure" in src.lower()
+        assert "Signal types" in src, "signal types panel missing"
+        assert "Recommended Triage Actions" in src, "actions section missing"
+        assert "Severity vs priority" in src, "severity vs priority missing"
 
     def test_template_contains_pipeline_functions(self):
         """The single <script> tag in the template contains the full app pipeline."""
@@ -418,8 +422,11 @@ class TestEmbeddedReportRendering:
                 assert ".error" in html, "error state CSS missing"
 
                 # New dashboard sections
-                assert "What am I looking at" in html, "explainer panel missing"
-                assert "Potential Exposures" in html, "findings section missing"
+                assert "Signal types" in html, "signal types panel missing"
+                assert "Potential Security Issues" in html, "findings section missing"
+                assert "Recommended Triage Actions" in html, "actions section missing"
+                assert "Severity vs priority" in html, "severity vs priority missing"
+                assert "How recommendations are generated" in html, "rules section missing"
                 assert "What should I do next" in html or "actionGuide" in html, "action guide missing"
                 assert "Threat-Intel Refresh Status" in html or "intelStatus" in html, "intel status missing"
 

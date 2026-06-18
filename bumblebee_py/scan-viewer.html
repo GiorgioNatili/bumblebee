@@ -291,17 +291,19 @@
     <div class="bar-chart" id="ecoBarChart"></div>
   </div>
 
-  <!-- Threats-vs-traits explanation panel -->
-  <div class="section" id="explainerPanel" style="border-color:var(--accent);">
-    <div class="section-header"><h2>❓ What am I looking at?</h2></div>
+  <!-- Signal types panel -->
+  <div class="section" id="signalTypesPanel" style="border-color:var(--accent);">
+    <div class="section-header"><h2>🏷 Signal types</h2></div>
     <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
       <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--text);font-weight:500;">Inventory</td><td>Packages or tools found on the system.</td><td style="color:var(--text-dim);font-style:italic;">Usually no action</td></tr>
-        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--yellow);">Trait</td><td>Metadata such as direct dependency or lifecycle scripts.</td><td style="color:var(--text-dim);font-style:italic;">Use for prioritization</td></tr>
-        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--red);font-weight:500;">Potential exposure</td><td>Catalog match for package/version.</td><td style="color:var(--text-dim);font-style:italic;">Review first</td></tr>
-        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--accent);">Evidence</td><td>Reason for the match.</td><td style="color:var(--text-dim);font-style:italic;">Validate source and context</td></tr>
+        <tr><th style="text-align:left;padding:4px 12px 4px 0;color:var(--text);font-weight:600;">Signal</th><th style="text-align:left;padding:4px 12px;color:var(--text);font-weight:600;">Meaning</th><th style="text-align:left;padding:4px 0;color:var(--text);font-weight:600;">Source</th><th style="text-align:left;padding:4px 0 4px 12px;color:var(--text);font-weight:600;">Action</th></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:var(--text);">Inventory</td><td style="padding:4px 12px;">Package/tool/extension found on the system</td><td style="padding:4px 12px;">Scanner output</td><td style="padding:4px 0 4px 12px;color:var(--text-dim);font-style:italic;">Usually no action</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:var(--yellow);">Trait</td><td style="padding:4px 12px;">Metadata about an inventory item</td><td style="padding:4px 12px;">Scanner output</td><td style="padding:4px 0 4px 12px;color:var(--text-dim);font-style:italic;">Use for prioritization</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:var(--red);font-weight:500;">Potential exposure</td><td style="padding:4px 12px;">Package/version matched threat-intel catalog</td><td style="padding:4px 12px;">Scanner + catalog match</td><td style="padding:4px 0 4px 12px;color:var(--text-dim);font-style:italic;">Review first</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:var(--accent);">Recommendation</td><td style="padding:4px 12px;">Dashboard-generated triage guidance</td><td style="padding:4px 12px;">Dashboard heuristic</td><td style="padding:4px 0 4px 12px;color:var(--text-dim);font-style:italic;">Validate before acting</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:var(--green);">Evidence</td><td style="padding:4px 12px;">Reason a finding/recommendation exists</td><td style="padding:4px 12px;">Scanner, catalog, or correlation</td><td style="padding:4px 0 4px 12px;color:var(--text-dim);font-style:italic;">Use to verify</td></tr>
       </table>
-      <p style="margin-top:6px;font-size:0.8rem;">A finding is <strong>not proof of compromise</strong>; it is a reason to review. Traits help prioritize but are not threats by themselves.</p>
+      <p style="margin-top:6px;font-size:0.8rem;">Inventory is not a threat. Traits are not threats by themselves. Potential exposures are catalog-backed findings. Recommendations are dashboard-generated guidance. <strong>Not proof of compromise.</strong></p>
     </div>
   </div>
 
@@ -311,11 +313,17 @@
     <div id="actionGuideContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;"></div>
   </div>
 
-  <!-- Findings / Potential Exposures section -->
+  <!-- Potential Security Issues -->
   <div class="section" id="findingsSection" style="display:none;">
     <div class="section-header">
-      <h2>🔍 Potential Exposures <span style="font-size:0.7rem;color:var(--text-dim);font-weight:normal;">(catalog matches — package-presence evidence)</span></h2>
+      <h2>🔍 Potential Security Issues</h2>
       <span class="count-badge" id="findingsCount"></span>
+    </div>
+    <div id="findingsEmptyState" class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p>No potential security issues were found in this snapshot.</p>
+      <p style="font-size:0.8rem;margin-top:4px;">Possible reasons: scan run without <code>--exposure-catalog</code>, catalog had no matches, or the file contains inventory only.</p>
+      <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.75rem;display:inline-block;margin-top:4px;">bumblebee scan --profile baseline --exposure-catalog ./threat_intel --view</pre>
     </div>
     <div class="filter-bar" id="findingsFilterBar">
       <button class="filter-btn active" data-sev="all" onclick="filterFindings('all')">All</button>
@@ -326,16 +334,49 @@
     </div>
     <div class="table-wrap" id="findingsTableWrap">
       <table><thead><tr>
-        <th>Severity</th>
-        <th>Catalog ID</th>
-        <th>Catalog Name</th>
-        <th>Ecosystem</th>
-        <th>Package</th>
-        <th>Version</th>
-        <th>Evidence</th>
-        <th>Source</th>
-        <th>Confidence</th>
+        <th>Severity</th><th>Signal</th><th>Package</th><th>Version</th><th>Ecosystem</th><th>Source</th><th>Catalog ID</th><th>Evidence</th><th>Priority</th>
       </tr></thead><tbody id="findingsBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- Recommended Triage Actions -->
+  <div class="section" id="actionsSection" style="display:none;">
+    <div class="section-header">
+      <h2>📋 Recommended Triage Actions</h2>
+      <span style="font-size:0.7rem;color:var(--text-dim);">Dashboard-generated guidance — not proof of compromise</span>
+    </div>
+    <div class="table-wrap" id="actionsTableWrap">
+      <table><thead><tr>
+        <th>Priority</th><th>Recommendation</th><th>Why</th><th>Source</th><th>Related Package</th><th>Related Signal</th><th>Next Step</th>
+      </tr></thead><tbody id="actionsBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- Severity vs priority -->
+  <div class="section" id="sevPriPanel" style="display:none;border-color:var(--accent);">
+    <div class="section-header"><h2>⚖️ Severity vs priority</h2></div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
+      <p><strong>Severity</strong> comes from the threat-intel catalog.</p>
+      <p><strong>Priority</strong> is generated by the dashboard from severity plus local context (direct dependency, install scope, confidence, lifecycle scripts).</p>
+      <p style="margin-top:4px;font-size:0.8rem;">A high-severity catalog match in a direct dependency is higher priority than the same match in a low-confidence stale source file.</p>
+      <p style="font-size:0.75rem;color:var(--text-dim);margin-top:2px;">Priority source: Dashboard heuristic</p>
+    </div>
+  </div>
+
+  <!-- How recommendations are generated -->
+  <div class="section" id="rulesSection" style="display:none;">
+    <div class="section-header">
+      <h2>📖 How recommendations are generated</h2>
+      <button class="filter-btn" onclick="toggleRules()" id="rulesToggle">Show</button>
+    </div>
+    <div id="rulesContent" style="display:none;font-size:0.8rem;color:var(--text-dim);line-height:1.7;">
+      <ul style="margin:8px 0 0 16px;">
+        <li><strong>Review immediately</strong> — finding severity critical/high + package is a direct dependency or global/user scope. <span style="color:var(--text-dim);font-size:0.75rem;">Source: Dashboard heuristic using scanner + catalog data.</span></li>
+        <li><strong>Check lifecycle scripts</strong> — package has a finding and has_lifecycle_scripts is true. <span style="color:var(--text-dim);font-size:0.75rem;">Source: Dashboard heuristic using scanner traits.</span></li>
+        <li><strong>Validate source file</strong> — finding or package confidence is low/medium. <span style="color:var(--text-dim);font-size:0.75rem;">Source: Dashboard heuristic using scanner confidence.</span></li>
+        <li><strong>Refresh threat intel</strong> — no catalog metadata present. <span style="color:var(--text-dim);font-size:0.75rem;">Source: Dashboard heuristic using snapshot metadata.</span></li>
+        <li><strong>No immediate action</strong> — package has inventory traits only, no catalog-backed finding. <span style="color:var(--text-dim);font-size:0.75rem;">Source: Dashboard heuristic.</span></li>
+      </ul>
     </div>
   </div>
 
@@ -535,6 +576,7 @@ function renderDashboard() {
   try { buildSummaryCards(); debugLog('summary cards rendered'); } catch(e) { debugLog(`summary error: ${e.message}`, true); }
   try { buildEcoBars(); debugLog('eco bars rendered'); } catch(e) { debugLog(`eco bars error: ${e.message}`, true); }
   try { renderFindings(); debugLog('findings table rendered'); } catch(e) { debugLog(`findings error: ${e.message}`, true); }
+  try { renderActions(); debugLog('actions rendered'); } catch(e) { debugLog(`actions error: ${e.message}`, true); }
   try { buildTabs(); debugLog('tabs rendered'); } catch(e) { debugLog(`tabs error: ${e.message}`, true); }
   ecosystemFilter = null;
   activeTab = 'all';
@@ -546,7 +588,12 @@ function renderDashboard() {
     document.getElementById('rawDataSize').textContent = `${(rawDataText.length / 1024).toFixed(1)} KB`;
     document.getElementById('rawDataContent').textContent = rawDataText;
   }
-  debugLog(`render completed: ${packages.length} packages, ${allRecords.length} total records`);
+  // Show severity-vs-priority and rules sections if findings exist
+  const sevPri = document.getElementById('sevPriPanel');
+  const rules = document.getElementById('rulesSection');
+  if (sevPri) sevPri.style.display = findings.length > 0 ? 'block' : 'none';
+  if (rules) rules.style.display = findings.length > 0 ? 'block' : 'none';
+  debugLog(`render completed: ${packages.length} packages, ${findings.length} findings, ${allRecords.length} total records`);
 }
 
 // ─── file handling (drag-and-drop) ───
@@ -693,7 +740,7 @@ function buildEcoBars() {
 }
 
 function renderFindings() {
-  /* Render findings with empty state, action recommendations, and package-trait correlation. */
+  /* Render findings with empty state, action recommendations, and source attribution. */
   const section = document.getElementById('findingsSection');
   const tbody = document.getElementById('findingsBody');
   const countEl = document.getElementById('findingsCount');
@@ -715,10 +762,9 @@ function renderFindings() {
   document.getElementById('findingsTableWrap').style.display = 'block';
   if (countEl) countEl.textContent = `${findings.length} finding(s)`;
 
-  // Enrich findings with recommended action and correlated package traits
+  // Enrich findings with recommended action and source attribution
   const enriched = findings.map(f => {
     const sev = (f.severity || '').toLowerCase();
-    // Find matching package record for trait correlation
     const pkg = packages.find(p =>
       p.ecosystem === f.ecosystem &&
       p.normalized_name === f.normalized_name &&
@@ -742,7 +788,6 @@ function renderFindings() {
 }
 
 function filterFindings(severity) {
-  /* Filter the findings table by severity. */
   const section = document.getElementById('findingsSection');
   const tbody = document.getElementById('findingsBody');
   const raw = section && section.dataset.allFindings;
@@ -750,34 +795,27 @@ function filterFindings(severity) {
   document.querySelectorAll('#findingsFilterBar .filter-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.sev === severity);
   });
-
   if (!raw || !tbody) return;
-
   let items;
   try { items = JSON.parse(raw); } catch(e) { return; }
-
-  if (severity !== 'all') {
-    items = items.filter(f => (f.severity || '').toLowerCase() === severity);
-  }
-
+  if (severity !== 'all') items = items.filter(f => (f.severity || '').toLowerCase() === severity);
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No findings match this filter</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-row">No findings match this filter</td></tr>';
     return;
   }
-
   tbody.innerHTML = items.map(f => {
     const sevClass = `badge-${(f.severity || 'unknown').toLowerCase()}`;
-    const actionClass = f._action === 'Review immediately' ? 'sev-critical' :
-      f._action === 'Check lifecycle scripts' ? 'sev-high' : 'sev-medium';
+    const actionClass = f._action === 'Review immediately' ? 'sev-critical' : f._action === 'Check lifecycle scripts' ? 'sev-high' : 'sev-medium';
     return `<tr class="finding-row">
       <td><span class="badge ${sevClass}">${esc(f.severity)}</span></td>
-      <td><span class="badge badge-${f.ecosystem}">${esc(f.ecosystem)}</span></td>
+      <td><span style="font-size:0.75rem;color:var(--text-dim);">Potential exposure</span></td>
       <td><strong>${esc(f.package_name)}</strong></td>
       <td>${esc(f.version)}</td>
-      <td style="font-family:monospace;font-size:0.75rem;">${esc(f.catalog_id)}</td>
-      <td style="font-style:italic;color:var(--text-dim);font-size:0.75rem;">${esc(f.evidence)}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:0.75rem;" title="${esc(f.source_file)}">${esc(f.source_file)}</td>
-      <td class="${actionClass}" style="font-weight:500;font-size:0.75rem;">${esc(f._action)}</td>
+      <td><span class="badge badge-${f.ecosystem}">${esc(f.ecosystem)}</span></td>
+      <td style="font-size:0.72rem;color:var(--text-dim);">Scanner + catalog match</td>
+      <td style="font-family:monospace;font-size:0.72rem;">${esc(f.catalog_id)}</td>
+      <td style="font-size:0.72rem;font-style:italic;color:var(--text-dim);">${esc(f.evidence)}</td>
+      <td class="${actionClass}" style="font-weight:500;font-size:0.78rem;">${esc(f._action)}</td>
     </tr>`;
   }).join('');
 }
@@ -851,6 +889,78 @@ function updateIntelStatus() {
       <p style="font-size:0.8rem;">Refresh the local catalog, then rerun the scan:</p>
       <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.75rem;margin-top:4px;">bumblebee intel refresh --output threat_intel/osv-malicious.json</pre>`;
   }
+}
+
+function renderActions() {
+  /* Generate recommended triage actions based on findings + package traits. */
+  const section = document.getElementById('actionsSection');
+  const tbody = document.getElementById('actionsBody');
+  if (!section || !tbody) return;
+
+  if (findings.length === 0 && packages.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  const actions = [];
+
+  // Per-finding recommendations
+  for (const f of findings) {
+    const sev = (f.severity || '').toLowerCase();
+    const pkg = packages.find(p =>
+      p.ecosystem === f.ecosystem &&
+      p.normalized_name === f.normalized_name &&
+      p.version === f.version
+    );
+    const isDirect = pkg ? pkg.direct_dependency : false;
+    const hasScripts = pkg ? pkg.has_lifecycle_scripts : false;
+    const scope = pkg ? (pkg.install_scope || '').toLowerCase() : '';
+
+    if ((sev === 'critical' || sev === 'high') && isDirect) {
+      actions.push({ priority: 'High', rec: 'Review immediately', why: 'Catalog match + direct dependency', source: 'Dashboard heuristic using scanner + catalog data', pkg: f.package_name, signal: 'Potential exposure', next: 'Open source file and verify package/version' });
+    }
+    if (hasScripts) {
+      actions.push({ priority: 'Medium', rec: 'Check lifecycle scripts', why: 'Finding package has lifecycle scripts', source: 'Dashboard heuristic using scanner traits', pkg: f.package_name, signal: 'Potential exposure', next: 'Review script contents in source file' });
+    }
+    if (scope === 'global' || scope === 'user') {
+      actions.push({ priority: 'Medium', rec: 'Confirm installation', why: 'Package installed in global/user scope', source: 'Dashboard heuristic using scanner install_scope', pkg: f.package_name, signal: 'Potential exposure', next: 'Check if package is still needed' });
+    }
+    if ((f.confidence || '').toLowerCase() === 'low') {
+      actions.push({ priority: 'Low', rec: 'Validate source file', why: 'Finding has low confidence', source: 'Dashboard heuristic using scanner confidence', pkg: f.package_name, signal: 'Potential exposure', next: 'Verify source file exists and is current' });
+    }
+  }
+
+  // No-catalog-metadata recommendation
+  if (findings.length === 0 && packages.length > 0) {
+    actions.push({ priority: 'Low', rec: 'Refresh threat intel and rescan', why: 'No catalog matches found', source: 'Dashboard heuristic using snapshot data', pkg: '-', signal: 'None', next: 'Run bumblebee intel refresh, then scan with --exposure-catalog' });
+  }
+
+  if (actions.length === 0) {
+    actions.push({ priority: '-', rec: 'No immediate action needed', why: 'Package has inventory traits only, no catalog-backed finding', source: 'Dashboard heuristic', pkg: '-', signal: 'Inventory', next: 'Monitor via daily scans' });
+  }
+
+  tbody.innerHTML = actions.map(a => {
+    const priClass = a.priority === 'High' ? 'sev-critical' : a.priority === 'Medium' ? 'sev-high' : 'sev-medium';
+    return `<tr>
+      <td class="${priClass}" style="font-weight:500;">${esc(a.priority)}</td>
+      <td>${esc(a.rec)}</td>
+      <td style="font-size:0.78rem;color:var(--text-dim);">${esc(a.why)}</td>
+      <td style="font-size:0.75rem;color:var(--text-dim);">${esc(a.source)}</td>
+      <td>${esc(a.pkg)}</td>
+      <td style="font-size:0.78rem;">${esc(a.signal)}</td>
+      <td style="font-size:0.78rem;color:var(--text-dim);">${esc(a.next)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleRules() {
+  const content = document.getElementById('rulesContent');
+  const btn = document.getElementById('rulesToggle');
+  if (!content || !btn) return;
+  const visible = content.style.display === 'block';
+  content.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? 'Show' : 'Hide';
 }
 
 function buildTabs() {
