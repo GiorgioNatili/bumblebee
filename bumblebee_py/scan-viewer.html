@@ -1269,13 +1269,25 @@ function renderTable() {
     const ecoClass = `badge-${p.ecosystem}`;
     const confClass = `conf-${p.confidence}`;
     const detailId = `detail-${idx}`;
+    const hasFinding = findings.some(f =>
+      f.ecosystem === p.ecosystem && f.normalized_name === p.normalized_name && f.version === p.version
+    );
+    // Badges
+    let badges = '';
+    if (p.direct_dependency) badges += '<span style="font-size:0.65rem;background:rgba(52,211,153,0.15);color:var(--green);padding:1px 5px;border-radius:3px;margin-right:3px;">direct</span>';
+    else if (p.direct_dependency === false) badges += '<span style="font-size:0.65rem;background:rgba(139,143,163,0.1);color:var(--text-dim);padding:1px 5px;border-radius:3px;margin-right:3px;">transitive</span>';
+    if (p.has_lifecycle_scripts) badges += '<span style="font-size:0.65rem;background:rgba(251,191,36,0.15);color:var(--yellow);padding:1px 5px;border-radius:3px;margin-right:3px;">scripts</span>';
+    if (p.confidence === 'low' || p.confidence === 'medium') badges += '<span style="font-size:0.65rem;background:rgba(251,146,60,0.15);color:var(--orange);padding:1px 5px;border-radius:3px;margin-right:3px;">low-conf</span>';
+    if (hasFinding) badges += '<span style="font-size:0.65rem;background:rgba(248,113,113,0.15);color:var(--red);padding:1px 5px;border-radius:3px;margin-right:3px;">exposed</span>';
+    if (p.ecosystem === 'mcp') badges += '<span style="font-size:0.65rem;background:rgba(129,140,248,0.15);color:#a5b4fc;padding:1px 5px;border-radius:3px;margin-right:3px;">MCP</span>';
+    if (p.ecosystem === 'editor-extension' || p.ecosystem === 'browser-extension') badges += '<span style="font-size:0.65rem;background:rgba(244,114,182,0.15);color:#f9a8d4;padding:1px 5px;border-radius:3px;margin-right:3px;">ext</span>';
     const arrow = sortCol === null || sortCol === 'package_name' ? 
       `<span style="cursor:pointer;color:var(--accent);font-size:0.8rem;" onclick="toggleRowDetail('${detailId}', this)">▶</span>` :
       `<span style="color:var(--text-dim);font-size:0.8rem;">▶</span>`;
     return `<tr>
       <td>${arrow}</td>
       <td><span class="badge ${ecoClass}">${ECO_LABELS[p.ecosystem] || p.ecosystem}</span></td>
-      <td><strong>${esc(p.package_name)}</strong> <span style="color:var(--text-dim)">${esc(p.version)}</span></td>
+      <td><strong>${esc(p.package_name)}</strong> <span style="color:var(--text-dim)">${esc(p.version)}</span>${badges ? `<br><span style="line-height:1.8;">${badges}</span>` : ''}</td>
       <td class="${confClass}">${p.confidence}</td>
       <td>${p.source_type || '-'}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${esc(p.source_file || '')}">${esc(p.source_file || '')}</td>
