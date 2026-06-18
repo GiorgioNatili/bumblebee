@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.2 (2026-06-17)
+
+### Added
+
+- **Trait explanations in expandable package details** — Each trait now shows
+  "Trait — not a threat by itself" with meaning, security relevance, and source.
+- **Evidence cards for findings** — Expanded package rows now show match basis
+  ("exact ecosystem/package/version match") and limitation ("Package-presence
+  evidence, not proof of compromise").
+- **Source attribution fallback** — "Source not available in this snapshot"
+  shown when catalog metadata is missing.
+- **Threat-intel catalog source label** — Signal types panel now shows
+  "Threat-intel catalog" as source for potential exposures.
+
 ## 0.4.1 (2026-06-17)
 
 ### Fixed

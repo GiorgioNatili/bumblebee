@@ -305,6 +305,11 @@ class TestEmbeddedReportRendering:
         assert "Signal types" in src, "signal types panel missing"
         assert "Recommended Triage Actions" in src, "actions section missing"
         assert "Severity vs priority" in src, "severity vs priority missing"
+        assert "Trait — not a threat by itself" in src, "trait explanation missing"
+        assert "not proof of compromise" in src, "safe language missing"
+        assert "package-presence evidence" in src, "catalog language missing"
+        assert "Source not available in this snapshot" in src, "source fallback missing"
+        assert "Threat-intel catalog" in src, "threat-intel source label missing"
 
     def test_template_contains_pipeline_functions(self):
         """The single <script> tag in the template contains the full app pipeline."""
@@ -431,7 +436,17 @@ class TestEmbeddedReportRendering:
                 assert "Threat-Intel Refresh Status" in html or "intelStatus" in html, "intel status missing"
 
                 # Safe language
-                assert "potential exposure" in html.lower() or "catalog match" in html.lower(), "safe language missing"
+                assert "not proof of compromise" in html.lower() or "not proof" in html.lower(), "safe language missing"
+                assert "package-presence evidence" in html.lower() or "catalog match" in html.lower(), "catalog language missing"
+
+                # Trait explanations in expandable details
+                assert "Trait — not a threat by itself" in html, "trait explanation missing"
+
+                # Source attribution fallback
+                assert "Source not available in this snapshot" in html, "source fallback missing"
+
+                # Threat-intel catalog source label
+                assert "Threat-intel catalog" in html, "threat-intel source label missing"
 
                 # Collapsible debug
                 assert "toggleDebug" in html, "debug toggle function missing"
