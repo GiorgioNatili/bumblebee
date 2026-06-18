@@ -313,6 +313,21 @@
     <div id="actionGuideContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;"></div>
   </div>
 
+  <!-- Catalog source selector -->
+  <div class="section" id="sourceSelector" style="display:none;padding:8px 16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:0.85rem;font-weight:600;color:var(--text);">Catalog source:</span>
+      <select id="filterCatalogSource" onchange="applyFilters()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.8rem;">
+        <option value="all">All</option>
+        <option value="legacy-intel">Legacy Intel</option>
+        <option value="openssf">OpenSSF</option>
+        <option value="ghsa">GitHub Advisory / GHSA</option>
+        <option value="cisa-kev">CISA KEV</option>
+      </select>
+      <span style="font-size:0.72rem;color:var(--text-dim);">Catalog sources are local data files from upstream sources. Source filtering shows findings and packages linked to that source.</span>
+    </div>
+  </div>
+
   <!-- Triage filters -->
   <div class="section" id="filterPanel" style="display:none;">
     <div class="section-header">
@@ -466,9 +481,9 @@
   <!-- Ecosystem tabs -->
   <div class="tabs" id="tabs"></div>
 
-  <!-- Threat-intel status -->
+  <!-- Catalog Refresh Status -->
   <div class="section" id="intelStatusSection" style="display:none;">
-    <div class="section-header"><h2>🔄 Threat-Intel Refresh Status</h2></div>
+    <div class="section-header"><h2>🔄 Catalog Refresh Status</h2></div>
     <div id="intelStatusContent" style="font-size:0.8rem;color:var(--text-dim);line-height:1.6;"></div>
   </div>
 
@@ -978,9 +993,9 @@ function updateIntelStatus() {
   } else {
     section.style.display = 'block';
     content.innerHTML = `
-      <p style="color:var(--text-dim);">Threat-intel refresh metadata is not available in this snapshot.</p>
-      <p style="font-size:0.8rem;">Refresh the local catalog, then rerun the scan:</p>
-      <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.75rem;margin-top:4px;">bumblebee intel refresh --output threat_intel/osv-malicious.json</pre>`;
+      <p style="color:var(--text-dim);">Catalog refresh metadata is not available in this snapshot.</p>
+      <p style="font-size:0.8rem;">Refresh all local catalogs:</p>
+      <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.75rem;margin-top:4px;">bumblebee catalog refresh --all --output-dir catalogs</pre>`;
   }
 }
 

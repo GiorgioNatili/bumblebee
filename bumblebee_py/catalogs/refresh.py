@@ -16,6 +16,32 @@ from bumblebee_py.catalogs import osv as _osv
 from bumblebee_py.catalogs import catalog as _catalog
 
 
+def _refresh_all(opts) -> int:
+    """Refresh all supported sources in one shot."""
+    sources = {
+        "openssf": "catalogs/malicious/openssf.json",
+        "ghsa": "catalogs/vulnerabilities/ghsa.json",
+        "cisa-kev": "catalogs/overlays/cisa-kev.json",
+    }
+    exit_code = 0
+    for source, default_output in sources.items():
+        if opts.verbose:
+            print(f"\n[catalog] --- {source} ---", file=sys.stderr)
+        # Build argv for this source
+        single_opts = argparse.Namespace(
+            source=source,
+            output=default_output,
+            local_source=opts.local_source,
+            dry_run=opts.dry_run,
+            verbose=opts.verbose,
+            all=False,
+        )
+        rc = _refresh_single(single_opts)
+        if rc != 0 and exit_code == 0:
+            exit_code = rc
+    return exit_code
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     """Entry point for ``bumblebee catalog refresh``.
 
@@ -48,9 +74,22 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--verbose", "-v", action="store_true", default=False,
         help="Print progress information to stderr",
     )
+    parser.add_argument(
+        "--all", action="store_true", default=False,
+        help="Refresh all supported sources (openssf, ghsa, cisa-kev)",
+    )
 
     opts = parser.parse_args(argv)
 
+    # Handle --all: refresh all sources in one shot
+    if opts.all:
+        return _refresh_all(opts)
+
+    return _refresh_single(opts)
+
+
+def _refresh_single(opts) -> int:
+    """Refresh a single catalog source."""
     # Source aliases: map shorthand names to real source locations
     source = opts.source.lower() if opts.source else ""
     if opts.local_source:
