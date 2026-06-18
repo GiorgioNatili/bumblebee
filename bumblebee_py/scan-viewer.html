@@ -515,6 +515,7 @@ let activeTab = 'all';
 let sortCol = null;
 let sortDir = 1;
 let ecosystemFilter = null;
+let _filterState = { priority: 'all', severity: 'all', exposure: 'all', traits: 'all', source: 'all' };
 
 const ECO_COLORS = {
   npm: '#ef4444', homebrew: '#fbbf24', pypi: '#60a5fa',
@@ -1056,7 +1057,6 @@ function toggleRules() {
 }
 
 // ─── filter state ───
-let _filterState = { priority: 'all', severity: 'all', exposure: 'all', traits: 'all', source: 'all' };
 
 function applyFilters() {
   _filterState = {
