@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0 (2026-06-17)
+
+### Added
+
+- **Triage filters panel** — Filter by risk/priority (high/medium/low), severity
+  (critical/high/medium/low), exposure status (has exposure, no match, findings
+  only, packages only), traits (direct, transitive, lifecycle scripts, low
+  confidence), and source (scanner, catalog, match, heuristic). Reset button
+  included.
+- **Zero-finding diagnostics** — "Why am I seeing zero potential exposures?"
+  panel with 6 possible reasons (no catalog, no match, no metadata, malicious-
+  only coverage, exact matching, uncovered ecosystems).
+- **Catalog coverage summary** — Shows scanned ecosystems, catalog ecosystems,
+  coverage gaps, and matcher type (exact ecosystem/package/version).
+- **Synthetic detection fixtures** — `tests/fixtures/catalogs/synthetic-exposure.json`
+  with a known-exposed-package@1.2.3 entry and advisory URL.
+- **Detection efficacy tests** — 8 new tests in `tests/test_exposure_matching.py`:
+  positive match, negative version match, negative ecosystem match, metadata
+  preservation, URL preservation, safe-package non-match, metadata-absent match,
+  CLI smoke test.
+
+### Changed
+
+- Dashboard now calls `renderZeroFindingDiag()` and `renderCoverage()` during
+  render to show diagnostic information.
+- `renderTable()`, `filterFindings()`, and `renderActions()` respect the global
+  `_filterState` for consistent filtering across all views.
+- `filterPackage()` and `filterFinding()` helper functions encapsulate filter
+  logic.
+
 ## 0.4.2 (2026-06-17)
 
 ### Added

@@ -313,6 +313,89 @@
     <div id="actionGuideContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;"></div>
   </div>
 
+  <!-- Triage filters -->
+  <div class="section" id="filterPanel" style="display:none;">
+    <div class="section-header">
+      <h2>🔎 Triage Filters</h2>
+      <button class="filter-btn" onclick="resetFilters()" id="resetFiltersBtn" style="margin-left:auto;">Reset filters</button>
+    </div>
+    <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;" id="filterStatus"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">Risk/Priority</div>
+        <select id="filterPriority" onchange="applyFilters()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.78rem;">
+          <option value="all">All priorities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">Severity</div>
+        <select id="filterSeverity" onchange="applyFilters()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.78rem;">
+          <option value="all">All severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">Exposure</div>
+        <select id="filterExposure" onchange="applyFilters()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.78rem;">
+          <option value="all">All records</option>
+          <option value="has_exposure">Has potential exposure</option>
+          <option value="no_exposure">No catalog match</option>
+          <option value="findings_only">Findings only</option>
+          <option value="packages_only">Packages only</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">Traits</div>
+        <select id="filterTraits" onchange="applyFilters()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.78rem;">
+          <option value="all">All packages</option>
+          <option value="direct">Direct dependencies only</option>
+          <option value="transitive">Transitive only</option>
+          <option value="has_scripts">Has lifecycle scripts</option>
+          <option value="low_confidence">Low/medium confidence</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:2px;">Source</div>
+        <select id="filterSource" onchange="applyFilters()" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.78rem;">
+          <option value="all">All sources</option>
+          <option value="scanner">Scanner output</option>
+          <option value="catalog">Threat-intel catalog</option>
+          <option value="match">Scanner + catalog match</option>
+          <option value="heuristic">Dashboard heuristic</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Zero-finding diagnostics -->
+  <div class="section" id="zeroFindingsDiag" style="display:none;border-color:var(--yellow);">
+    <div class="section-header"><h2>❓ Why am I seeing zero potential exposures?</h2></div>
+    <div id="zeroFindingsContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
+      <p>Zero findings does not prove zero vulnerabilities. Possible reasons:</p>
+      <ol style="margin:8px 0 0 20px;">
+        <li id="zfd-reason-1">Scan was run without <code>--exposure-catalog</code>.</li>
+        <li id="zfd-reason-2">Catalog was loaded but no package/version matched.</li>
+        <li id="zfd-reason-3">Catalog freshness cannot be verified (no metadata).</li>
+        <li id="zfd-reason-4">Threat-intel catalog covers malicious packages, not general CVEs.</li>
+        <li id="zfd-reason-5">Matcher uses exact version matching only.</li>
+        <li id="zfd-reason-6">Some scanned ecosystems may not be covered by the catalog.</li>
+      </ol>
+      <p style="margin-top:8px;font-size:0.8rem;">Zero findings means Bumblebee did not emit finding records for this snapshot. It does not mean the system has no risk.</p>
+    </div>
+  </div>
+
+  <!-- Coverage summary -->
+  <div class="section" id="coverageSection" style="display:none;">
+    <div class="section-header"><h2>📊 Catalog Coverage</h2></div>
+    <div id="coverageContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;"></div>
+  </div>
+
   <!-- Potential Security Issues -->
   <div class="section" id="findingsSection" style="display:none;">
     <div class="section-header">
@@ -593,6 +676,13 @@ function renderDashboard() {
   const rules = document.getElementById('rulesSection');
   if (sevPri) sevPri.style.display = findings.length > 0 ? 'block' : 'none';
   if (rules) rules.style.display = findings.length > 0 ? 'block' : 'none';
+  // Triage filters
+  const filterPanel = document.getElementById('filterPanel');
+  if (filterPanel) filterPanel.style.display = (packages.length > 0 || findings.length > 0) ? 'block' : 'none';
+  // Zero-finding diagnostics
+  try { renderZeroFindingDiag(); } catch(e) { debugLog(`zero-finding diag error: ${e.message}`, true); }
+  // Coverage
+  try { renderCoverage(); } catch(e) { debugLog(`coverage error: ${e.message}`, true); }
   debugLog(`render completed: ${packages.length} packages, ${findings.length} findings, ${allRecords.length} total records`);
 }
 
@@ -799,6 +889,8 @@ function filterFindings(severity) {
   let items;
   try { items = JSON.parse(raw); } catch(e) { return; }
   if (severity !== 'all') items = items.filter(f => (f.severity || '').toLowerCase() === severity);
+  // Apply global filters
+  items = items.filter(f => filterFinding(f));
   if (items.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" class="empty-row">No findings match this filter</td></tr>';
     return;
@@ -963,6 +1055,154 @@ function toggleRules() {
   btn.textContent = visible ? 'Show' : 'Hide';
 }
 
+// ─── filter state ───
+let _filterState = { priority: 'all', severity: 'all', exposure: 'all', traits: 'all', source: 'all' };
+
+function applyFilters() {
+  _filterState = {
+    priority: document.getElementById('filterPriority')?.value || 'all',
+    severity: document.getElementById('filterSeverity')?.value || 'all',
+    exposure: document.getElementById('filterExposure')?.value || 'all',
+    traits: document.getElementById('filterTraits')?.value || 'all',
+    source: document.getElementById('filterSource')?.value || 'all',
+  };
+  // Re-render with filters
+  try { renderFindings(); } catch(e) { debugLog(`findings filter error: ${e.message}`, true); }
+  try { renderActions(); } catch(e) { debugLog(`actions filter error: ${e.message}`, true); }
+  try { renderTable(); } catch(e) { debugLog(`table filter error: ${e.message}`, true); }
+  updateFilterStatus();
+}
+
+function resetFilters() {
+  ['filterPriority','filterSeverity','filterExposure','filterTraits','filterSource'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = 'all';
+  });
+  _filterState = { priority: 'all', severity: 'all', exposure: 'all', traits: 'all', source: 'all' };
+  try { renderFindings(); } catch(e) {}
+  try { renderActions(); } catch(e) {}
+  try { renderTable(); } catch(e) {}
+  updateFilterStatus();
+}
+
+function updateFilterStatus() {
+  const el = document.getElementById('filterStatus');
+  if (!el) return;
+  const active = Object.entries(_filterState).filter(([k,v]) => v !== 'all');
+  if (active.length === 0) {
+    el.textContent = `Showing all ${packages.length.toLocaleString()} packages, ${findings.length} findings`;
+    return;
+  }
+  el.textContent = `Filters active: ${active.map(([k,v]) => `${k}=${v}`).join(', ')}`;
+}
+
+function filterPackage(pkg) {
+  /* Return true if package passes current filters. */
+  if (_filterState.exposure === 'packages_only') return true;
+  if (_filterState.exposure === 'findings_only') return false;
+  const hasFinding = findings.some(f =>
+    f.ecosystem === pkg.ecosystem && f.normalized_name === pkg.normalized_name && f.version === pkg.version
+  );
+  if (_filterState.exposure === 'has_exposure' && !hasFinding) return false;
+  if (_filterState.exposure === 'no_exposure' && hasFinding) return false;
+  if (_filterState.traits === 'direct' && !pkg.direct_dependency) return false;
+  if (_filterState.traits === 'transitive' && pkg.direct_dependency !== false) return false;
+  if (_filterState.traits === 'has_scripts' && !pkg.has_lifecycle_scripts) return false;
+  if (_filterState.traits === 'low_confidence' && pkg.confidence !== 'low' && pkg.confidence !== 'medium') return false;
+  if (_filterState.severity !== 'all') {
+    const f = findings.find(f2 =>
+      f2.ecosystem === pkg.ecosystem && f2.normalized_name === pkg.normalized_name && f2.version === pkg.version
+    );
+    if (!f || (f.severity || '').toLowerCase() !== _filterState.severity) return false;
+  }
+  return true;
+}
+
+function filterFinding(f) {
+  /* Return true if finding passes current filters. */
+  if (_filterState.priority !== 'all') {
+    const sev = (f.severity || '').toLowerCase();
+    const pkg = packages.find(p =>
+      p.ecosystem === f.ecosystem && p.normalized_name === f.normalized_name && p.version === f.version
+    );
+    const isDirect = pkg ? pkg.direct_dependency : false;
+    const hasScripts = pkg ? pkg.has_lifecycle_scripts : false;
+    const scope = pkg ? (pkg.install_scope || '').toLowerCase() : '';
+    const conf = (f.confidence || '').toLowerCase();
+    if (_filterState.priority === 'high') {
+      if (!((sev === 'critical' || sev === 'high') && isDirect)) return false;
+    } else if (_filterState.priority === 'medium') {
+      if (!(hasScripts || scope === 'global' || scope === 'user' || conf === 'low')) return false;
+    } else if (_filterState.priority === 'low') {
+      if (!(conf === 'low' || !isDirect)) return false;
+    }
+  }
+  if (_filterState.severity !== 'all' && (f.severity || '').toLowerCase() !== _filterState.severity) return false;
+  if (_filterState.exposure === 'packages_only') return false;
+  if (_filterState.source !== 'all') {
+    const srcLabels = { scanner: 'Scanner output', catalog: 'Threat-intel catalog', match: 'Scanner + catalog match', heuristic: 'Dashboard heuristic' };
+    // Findings are always scanner + catalog match
+    if (_filterState.source !== 'match') return false;
+  }
+  return true;
+}
+
+function renderZeroFindingDiag() {
+  const diag = document.getElementById('zeroFindingsDiag');
+  if (!diag) return;
+  if (findings.length > 0) { diag.style.display = 'none'; return; }
+  diag.style.display = 'block';
+
+  // Update reasons based on actual data
+  const setReason = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? 'list-item' : 'none';
+  };
+  // Reason 1: no catalog (check if findings exist and if catalog was likely loaded)
+  setReason('zfd-reason-1', findings.length === 0);
+  // Reason 2: catalog loaded but no matches — shown if packages exist
+  setReason('zfd-reason-2', packages.length > 0);
+  // Reason 3: no catalog metadata
+  setReason('zfd-reason-3', packages.length > 0);
+  // Reason 4: malicious packages only (always true for OSV catalogs)
+  setReason('zfd-reason-4', true);
+  // Reason 5: exact matching
+  setReason('zfd-reason-5', true);
+  // Reason 6: ecosystem coverage
+  setReason('zfd-reason-6', packages.length > 0);
+}
+
+function renderCoverage() {
+  const section = document.getElementById('coverageSection');
+  const content = document.getElementById('coverageContent');
+  if (!section || !content) return;
+
+  if (packages.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  // Compute scanned ecosystems
+  const scannedEcos = [...new Set(packages.map(p => p.ecosystem))].sort();
+  // Compute catalog ecosystems (from finding records)
+  const catalogEcos = [...new Set(findings.map(f => f.ecosystem))].sort();
+  const uncovered = scannedEcos.filter(e => !catalogEcos.includes(e));
+
+  let html = `<p><strong>Matcher type:</strong> Exact ecosystem/package/version matching.</p>`;
+  html += `<p><strong>Scanned ecosystems:</strong> ${scannedEcos.join(', ') || 'none'}</p>`;
+  html += `<p><strong>Catalog ecosystems (from findings):</strong> ${catalogEcos.join(', ') || 'none (no findings)'}</p>`;
+
+  if (uncovered.length > 0 && catalogEcos.length > 0) {
+    html += `<p style="color:var(--yellow);"><strong>Coverage gap:</strong> Some scanned ecosystems are not covered by the loaded catalog: ${uncovered.join(', ')}</p>`;
+    html += `<p style="font-size:0.8rem;">Packages in uncovered ecosystems cannot produce catalog-backed findings from the current catalog.</p>`;
+  }
+  if (findings.length > 0) {
+    html += `<p><strong>Findings emitted:</strong> ${findings.length}</p>`;
+  }
+  if (summary) {
+    html += `<p style="font-size:0.75rem;margin-top:4px;color:var(--text-dim);">This dashboard shows Bumblebee findings from the loaded catalog. Depending on the catalog, this may cover malicious packages, known vulnerable packages, or only a subset of ecosystems. Zero findings does not mean there are zero CVEs on the system.</p>`;
+  }
+  content.innerHTML = html;
+}
+
 function buildTabs() {
   const tabs = document.getElementById('tabs');
   const ecosystems = [...new Set(packages.map(p => p.ecosystem))].sort();
@@ -1001,6 +1241,9 @@ function renderTable() {
       (p.source_file || '').toLowerCase().includes(query)
     );
   }
+
+  // Apply triage filters
+  filtered = filtered.filter(p => filterPackage(p));
 
   // sort
   if (sortCol) {

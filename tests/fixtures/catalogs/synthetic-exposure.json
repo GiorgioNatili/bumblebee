@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "metadata": {
+    "source": "synthetic-test-catalog",
+    "generated_at": "2026-01-01T00:00:00Z",
+    "entries_emitted": 1,
+    "records_processed": 1,
+    "records_skipped": 0,
+    "skip_reasons": {}
+  },
+  "entries": [
+    {
+      "id": "TEST-EXPOSURE-001",
+      "name": "Synthetic test exposure for dashboard validation",
+      "ecosystem": "npm",
+      "package": "known-exposed-package",
+      "versions": ["1.2.3"],
+      "severity": "critical",
+      "url": "https://example.test/advisories/TEST-EXPOSURE-001"
+    }
+  ]
+}
