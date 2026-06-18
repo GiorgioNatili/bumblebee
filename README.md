@@ -193,9 +193,9 @@ additional files needed.
 
 | Component | Description |
 |---|---|
-| **Summary cards** | Total packages, largest ecosystem, high/medium/low confidence counts, direct dependencies, packages with lifecycle scripts |
-| **Ecosystem chart** | Doughnut chart showing package distribution by ecosystem |
-| **Confidence chart** | Doughnut chart showing confidence-level breakdown |
+| **Summary cards** | Total packages, total findings (critical/high/medium/low), largest ecosystem, confidence counts, direct dependencies, lifecycle scripts |
+| **Ecosystem bars** | Inline CSS bar chart showing package distribution by ecosystem (no CDN) |
+| **Findings table** | Severity-filterable table with catalog ID, catalog name, ecosystem, package name, version, evidence, source path, confidence |
 | **Ecosystem tabs** | Filter the package table to a single ecosystem |
 | **Search box** | Filter packages by name, version, or source path |
 | **Package table** | Sortable columns (ecosystem, package name, version, confidence, source type, path) |
@@ -224,13 +224,11 @@ The dashboard is bundled with the package at
 | Dashboard is blank | Embedded data missing or empty | Run with `--view` so data is injected automatically |
 | Dashboard shows "could not be parsed" | The embedded data is not valid NDJSON/JSON | Check the debug panel (shown above the dashboard) for parse errors |
 | Dashboard shows "no packages found" | Data contains non-package records only | The data may contain only diagnostic or summary records |
-| Charts don't render | Chart.js CDN blocked (offline) | Table, tabs, and raw data still work — charts are non-critical |
+| Dashboard shows no findings | No catalog match, or scan was run without `--exposure-catalog` | Run with `--exposure-catalog ./threat_intel` |
 | Drag-and-drop doesn't load | File is not `.jsonl` / `.ndjson` / `.json` | The file picker accepts these extensions |
 | Debug panel shows errors | See browser console for details | Open DevTools (F12) → Console for full error logs |
 
-Self-contained: the dashboard requires no network once the HTML is
-generated (Chart.js loads from CDN when first opened, but the table
-and summary cards work offline).
+The dashboard is fully self-contained. No network access is required.
 
 ### Self-test
 
@@ -523,6 +521,133 @@ loaded together by pointing `--exposure-catalog` at a directory; see
 the flag description above.
 
 ### Sample exposure catalogs
+
+## Package traits
+
+Each `package` record carries traits that help triage potential exposure:
+
+| Trait | Meaning | Why it matters |
+|---|---|---|
+| `ecosystem` | Package ecosystem (npm, PyPI, Go, RubyGems, Packagist, homebrew, browser-extension, editor-extension, mcp, agent-skill) | Groups exposure by package source |
+| `package_name` | Discovered package or extension name | Used for catalog matching |
+| `version` | Installed or locked version | Used for exact exposure matching |
+| `source_file` | File or metadata source where the package was found | Supports analyst review |
+| `source_type` | Type of source (lockfile, dist-info, manifest, receipt, etc.) | Indicates how the package was discovered |
+| `package_manager` | Package manager that installed the package (npm, pip, pnpm, homebrew, etc.) | Helps understand install context |
+| `confidence` | Confidence in the discovery (`high`, `medium`, `low`) | Helps prioritize review |
+| `direct_dependency` | Whether the package appears to be directly declared | Helps distinguish direct from transitive exposure |
+| `install_scope` | Global, user, project, extension, or similar scope | Helps determine blast radius |
+| `has_lifecycle_scripts` | Whether lifecycle scripts were detected | Useful for supply-chain triage |
+| `lifecycle_scripts` | Script names or metadata, if available | Helps review install-time execution risk |
+| `requested_spec` | Requested dependency specifier, if available | Helps compare declared vs resolved package |
+| `server_name` | MCP or server config name, if available (MCP ecosystem only) | Helps map packages back to configured tools |
+| `project_path` | Project root or workspace path where the package was found | Helps locate the package in context |
+| `root_kind` | Kind of scan root (user_package_root, project_root, homebrew_root, deep_home_root, etc.) | Identifies the root type that discovered the package |
+
+Some traits are source-specific. For example, `server_name` is only
+populated for MCP config discoveries, and `lifecycle_scripts` only
+appears when the source metadata includes scripts.
+
+### Inspecting output with jq
+
+```bash
+# Select all package records, compact fields.
+jq 'select(.record_type == "package") | {ecosystem, package_name, version, confidence, source_file}' snapshot.ndjson
+
+# Trait-rich view.
+jq '
+  select(.record_type == "package")
+  | {
+      ecosystem,
+      package_name,
+      version,
+      source_type,
+      source_file,
+      package_manager,
+      confidence,
+      direct_dependency,
+      install_scope,
+      requested_spec,
+      has_lifecycle_scripts,
+      lifecycle_scripts,
+      server_name
+    }
+' snapshot.ndjson
+
+# Select all finding records.
+jq 'select(.record_type == "finding")' snapshot.ndjson
+
+# Findings as a compact table (TSV).
+jq -r '
+  select(.record_type == "finding")
+  | [.severity, .ecosystem, .package_name, .version, .catalog_id, .evidence, .source_file]
+  | @tsv
+' snapshot.ndjson
+
+# Scan summary (one per run).
+jq 'select(.record_type == "scan_summary") | {status, package_records_emitted, findings_emitted, duration_ms}' snapshot.ndjson
+```
+
+## Understanding findings
+
+A `finding` record means Bumblebee discovered a package/version that
+matches an entry in a local exposure catalog. It is **package-presence
+evidence**, not runtime forensic proof.
+
+| Statement | Supported by Bumblebee? |
+|---|---|
+| "This package/version was found on this machine" | ✅ Yes (exact-match scanning of on-disk metadata) |
+| "This package/version matches a known-bad entry in the local catalog" | ✅ Yes (if `--exposure-catalog` was used) |
+| "This machine is compromised" | ❌ No (Bumblebee does not execute packages or collect runtime evidence) |
+| "This finding is a true positive" | ❌ No (catalogs may contain false positives; review each finding) |
+
+What to do with a finding:
+
+1. **Review the evidence** — check `source_file` and `confidence`.
+2. **Check install context** — is it a direct dependency (`direct_dependency`)?
+   Is it in a project (`install_scope: project`) or globally installed (`install_scope: global`)?
+3. **Check lifecycle scripts** — does the package have install-time scripts?
+4. **Refresh threat intel** — run `bumblebee intel refresh` to get the latest
+   catalog, then rescan.
+5. **Correlate with other tools** — Bumblebee findings are a triage signal,
+   not a verdict.
+
+Example finding:
+
+```json
+{
+  "record_type": "finding",
+  "severity": "critical",
+  "catalog_id": "local-2026-001",
+  "catalog_name": "Example package version present in exposure catalog",
+  "ecosystem": "npm",
+  "package_name": "example-pkg",
+  "version": "1.2.3",
+  "evidence": "exact name+version match (version=1.2.3)",
+  "source_file": "/path/to/package-lock.json",
+  "confidence": "high"
+}
+```
+
+## Documentation validation
+
+Before updating command examples, verify against the actual CLI:
+
+```bash
+# Top-level help.
+bumblebee --help
+
+# Scan flags.
+bumblebee scan --help
+
+# Threat-intel refresh.
+bumblebee intel refresh --help
+
+# Smoke test all major combinations.
+bumblebee scan --profile baseline --exposure-catalog ./threat_intel --findings-only --max-duration 60
+bumblebee scan --profile baseline --exposure-catalog ./threat_intel --view --max-duration 60
+bumblebee intel refresh --dry-run --verbose
+```
 
 The [`threat_intel/`](threat_intel/) directory holds maintained exposure
 catalogs built from public threat-intelligence reporting on recent
