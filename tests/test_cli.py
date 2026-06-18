@@ -296,7 +296,11 @@ class TestEmbeddedReportRendering:
         assert "buildEcoBars" in src, "eco bars missing"
         assert "renderFindings" in src, "findings renderer missing"
         assert "filterFindings" in src, "findings filter missing"
+        assert "updateActionGuide" in src, "action guide missing"
+        assert "updateIntelStatus" in src, "intel status missing"
+        assert "toggleDebug" in src, "debug toggle missing"
         assert "Potential Exposures" in src or "potential exposure" in src.lower()
+        assert "What am I looking at" in src, "explainer panel missing"
 
     def test_template_contains_pipeline_functions(self):
         """The single <script> tag in the template contains the full app pipeline."""
@@ -412,6 +416,22 @@ class TestEmbeddedReportRendering:
 
                 # Error/fallback CSS present
                 assert ".error" in html, "error state CSS missing"
+
+                # New dashboard sections
+                assert "What am I looking at" in html, "explainer panel missing"
+                assert "Potential Exposures" in html, "findings section missing"
+                assert "What should I do next" in html or "actionGuide" in html, "action guide missing"
+                assert "Threat-Intel Refresh Status" in html or "intelStatus" in html, "intel status missing"
+
+                # Safe language
+                assert "potential exposure" in html.lower() or "catalog match" in html.lower(), "safe language missing"
+
+                # Collapsible debug
+                assert "toggleDebug" in html, "debug toggle function missing"
+                assert "debugSection" in html, "collapsible debug section missing"
+
+                # Empty findings state
+                assert "findingsEmptyState" in html or "potential exposures found" in html.lower(), "empty findings state missing"
 
         finally:
             os.unlink(jsonl.name)

@@ -272,8 +272,14 @@
   <input type="file" id="fileInput" accept=".jsonl,.ndjson,.json">
 </div>
 
-<!-- Debug info panel (visible on the page) -->
-<div id="debugPanel" style="display:none;max-width:800px;margin:0 auto 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.75rem;color:var(--text-dim);font-family:monospace;line-height:1.6;"></div>
+<!-- Debug info panel (collapsible, hidden by default) -->
+<div class="section" id="debugSection" style="display:none;">
+  <div class="section-header">
+    <h2>🛠 Debug Details</h2>
+    <button class="filter-btn" onclick="toggleDebug()" id="debugToggle">Show</button>
+  </div>
+  <div id="debugPanel" style="display:none;font-size:0.75rem;color:var(--text-dim);font-family:monospace;line-height:1.6;max-height:300px;overflow-y:auto;background:var(--bg);padding:8px;border-radius:4px;"></div>
+</div>
 
 <!-- Dashboard -->
 <div class="dashboard" id="dashboard">
@@ -285,7 +291,27 @@
     <div class="bar-chart" id="ecoBarChart"></div>
   </div>
 
-  <!-- Findings section -->
+  <!-- Threats-vs-traits explanation panel -->
+  <div class="section" id="explainerPanel" style="border-color:var(--accent);">
+    <div class="section-header"><h2>❓ What am I looking at?</h2></div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--text);font-weight:500;">Inventory</td><td>Packages or tools found on the system.</td><td style="color:var(--text-dim);font-style:italic;">Usually no action</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--yellow);">Trait</td><td>Metadata such as direct dependency or lifecycle scripts.</td><td style="color:var(--text-dim);font-style:italic;">Use for prioritization</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--red);font-weight:500;">Potential exposure</td><td>Catalog match for package/version.</td><td style="color:var(--text-dim);font-style:italic;">Review first</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;white-space:nowrap;color:var(--accent);">Evidence</td><td>Reason for the match.</td><td style="color:var(--text-dim);font-style:italic;">Validate source and context</td></tr>
+      </table>
+      <p style="margin-top:6px;font-size:0.8rem;">A finding is <strong>not proof of compromise</strong>; it is a reason to review. Traits help prioritize but are not threats by themselves.</p>
+    </div>
+  </div>
+
+  <!-- Action guide -->
+  <div class="section" id="actionGuide" style="display:none;">
+    <div class="section-header"><h2>📋 What should I do next?</h2></div>
+    <div id="actionGuideContent" style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;"></div>
+  </div>
+
+  <!-- Findings / Potential Exposures section -->
   <div class="section" id="findingsSection" style="display:none;">
     <div class="section-header">
       <h2>🔍 Potential Exposures <span style="font-size:0.7rem;color:var(--text-dim);font-weight:normal;">(catalog matches — package-presence evidence)</span></h2>
@@ -311,6 +337,15 @@
         <th>Confidence</th>
       </tr></thead><tbody id="findingsBody"></tbody></table>
     </div>
+  </div>
+
+  <!-- Ecosystem tabs -->
+  <div class="tabs" id="tabs"></div>
+
+  <!-- Threat-intel status -->
+  <div class="section" id="intelStatusSection" style="display:none;">
+    <div class="section-header"><h2>🔄 Threat-Intel Refresh Status</h2></div>
+    <div id="intelStatusContent" style="font-size:0.8rem;color:var(--text-dim);line-height:1.6;"></div>
   </div>
 
   <div class="section" id="detailSection">
@@ -372,10 +407,19 @@ const ECO_LABELS = {
 };
 
 // ─── debug panel ───
+let _debugHasError = false;
+
 function debugLog(msg, isError) {
   const panel = document.getElementById('debugPanel');
-  if (!panel) return;
-  if (panel.style.display === 'none') panel.style.display = 'block';
+  const section = document.getElementById('debugSection');
+  if (!panel || !section) return;
+  if (section.style.display === 'none') section.style.display = 'block';
+  if (_debugHasError === false && isError) {
+    _debugHasError = true;
+    // Auto-expand on error
+    panel.style.display = 'block';
+    document.getElementById('debugToggle').textContent = 'Hide';
+  }
   const line = document.createElement('div');
   line.textContent = msg;
   if (isError) line.style.color = 'var(--red)';
@@ -385,7 +429,19 @@ function debugLog(msg, isError) {
 
 function clearDebug() {
   const panel = document.getElementById('debugPanel');
-  if (panel) { panel.innerHTML = ''; panel.style.display = 'none'; }
+  const section = document.getElementById('debugSection');
+  if (panel) panel.innerHTML = '';
+  if (section) section.style.display = 'none';
+  _debugHasError = false;
+}
+
+function toggleDebug() {
+  const panel = document.getElementById('debugPanel');
+  const btn = document.getElementById('debugToggle');
+  if (!panel || !btn) return;
+  const visible = panel.style.display === 'block';
+  panel.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? 'Show' : 'Hide';
 }
 
 // ─── pipeline: loadScanData → parseScanData → renderDashboard ───
@@ -558,6 +614,8 @@ function loadFile(file) {
       document.getElementById('dropZone').querySelector('p').textContent =
         `${packages.length.toLocaleString()} package records, ${allRecords.length - packages.length - 1} diagnostics`;
       renderDashboard();
+      updateActionGuide();
+      updateIntelStatus();
     } else {
       document.getElementById('dropZone').classList.add('error');
       document.getElementById('dropZone').querySelector('p').textContent =
@@ -574,25 +632,34 @@ function buildSummaryCards() {
   const eco = {};
   const conf = {};
   let direct = 0;
+  let lifecycleCount = 0;
   let sevCounts = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const p of packages) {
     eco[p.ecosystem] = (eco[p.ecosystem] || 0) + 1;
     conf[p.confidence] = (conf[p.confidence] || 0) + 1;
     if (p.direct_dependency) direct++;
+    if (p.has_lifecycle_scripts) lifecycleCount++;
   }
   for (const f of findings) {
     const sev = (f.severity || '').toLowerCase();
     if (sev in sevCounts) sevCounts[sev]++;
   }
 
+  const catalogStatus = findings.length > 0
+    ? `Catalog loaded, ${findings.length} match(es)`
+    : 'No exposure catalog detected';
+
   const cards = [
-    { value: findings.length.toLocaleString(), label: 'Potential Exposures', sub: `${sevCounts.critical} critical, ${sevCounts.high} high, ${sevCounts.medium} medium, ${sevCounts.low} low` },
+    { value: findings.length.toLocaleString(), label: 'Potential Exposures',
+      sub: findings.length > 0
+        ? `${sevCounts.critical} critical, ${sevCounts.high} high, ${sevCounts.medium} medium, ${sevCounts.low} low`
+        : 'No catalog matches — run with --exposure-catalog' },
     { value: packages.length.toLocaleString(), label: 'Total Packages', sub: `${Object.keys(eco).length} ecosystems` },
     { value: Object.values(eco).sort((a,b)=>b-a)[0].toLocaleString(), label: 'Largest Ecosystem', sub: Object.keys(eco).reduce((a,b)=>eco[a]>eco[b]?a:b) },
     { value: (conf.high || 0).toLocaleString(), label: 'High Confidence', sub: `${Math.round((conf.high||0)/packages.length*100)}% of total` },
-    { value: ((conf.medium||0)+(conf.low||0)).toLocaleString(), label: 'Low/Medium Confidence', sub: `medium=${conf.medium||0}, low=${conf.low||0}` },
-    { value: direct.toLocaleString(), label: 'Direct Dependencies', sub: `${Math.round(direct/packages.length*100)}% of total` },
-    { value: packages.filter(p => p.has_lifecycle_scripts).length, label: 'With Lifecycle Scripts', sub: 'Potential risk signal' },
+    { value: ((conf.medium||0)+(conf.low||0)).toLocaleString(), label: 'Low/Medium Confidence', sub: `medium=${conf.medium||0}, low=${conf.low||0} — validate` },
+    { value: direct.toLocaleString(), label: 'Direct Dependencies', sub: `${Math.round(direct/packages.length*100)}% of total — higher priority` },
+    { value: lifecycleCount, label: 'Lifecycle Scripts', sub: 'Trait — review when paired with exposure' },
   ];
 
   document.getElementById('summaryCards').innerHTML = cards.map(c => `
@@ -626,32 +693,51 @@ function buildEcoBars() {
 }
 
 function renderFindings() {
-  /* Render findings table with severity filtering. */
+  /* Render findings with empty state, action recommendations, and package-trait correlation. */
   const section = document.getElementById('findingsSection');
   const tbody = document.getElementById('findingsBody');
   const countEl = document.getElementById('findingsCount');
+  const emptyState = document.getElementById('findingsEmptyState');
+
+  if (!section || !tbody) return;
 
   if (findings.length === 0) {
-    section.style.display = 'none';
+    section.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'block';
+    document.getElementById('findingsFilterBar').style.display = 'none';
+    document.getElementById('findingsTableWrap').style.display = 'none';
     return;
   }
 
   section.style.display = 'block';
-  countEl.textContent = `${findings.length} finding(s)`;
+  if (emptyState) emptyState.style.display = 'none';
+  document.getElementById('findingsFilterBar').style.display = 'flex';
+  document.getElementById('findingsTableWrap').style.display = 'block';
+  if (countEl) countEl.textContent = `${findings.length} finding(s)`;
 
-  // Store all findings in a data attribute for filtering
-  section.dataset.allFindings = JSON.stringify(findings.map(f => ({
-    severity: f.severity || 'unknown',
-    catalog_id: f.catalog_id || '-',
-    catalog_name: f.catalog_name || '-',
-    ecosystem: f.ecosystem || '-',
-    package_name: f.package_name || '-',
-    version: f.version || '-',
-    evidence: f.evidence || '-',
-    source_file: f.source_file || '-',
-    confidence: f.confidence || '-',
-  })));
+  // Enrich findings with recommended action and correlated package traits
+  const enriched = findings.map(f => {
+    const sev = (f.severity || '').toLowerCase();
+    // Find matching package record for trait correlation
+    const pkg = packages.find(p =>
+      p.ecosystem === f.ecosystem &&
+      p.normalized_name === f.normalized_name &&
+      p.version === f.version
+    );
+    const isDirect = pkg ? pkg.direct_dependency : f.direct_dependency;
+    const hasScripts = pkg ? pkg.has_lifecycle_scripts : f.has_lifecycle_scripts;
+    const scope = pkg ? (pkg.install_scope || '').toLowerCase() : '';
+    const conf = (f.confidence || '').toLowerCase();
+    let action = 'Monitor only';
+    if ((sev === 'critical' || sev === 'high') && isDirect) action = 'Review immediately';
+    else if (hasScripts) action = 'Check lifecycle scripts';
+    else if (scope === 'global' || scope === 'user') action = 'Confirm installation';
+    else if (conf === 'low') action = 'Validate source file';
+    else if (sev === 'critical' || sev === 'high') action = 'Review dependency source';
+    return { ...f, _action: action, _isDirect: isDirect, _hasScripts: hasScripts, _scope: scope };
+  });
 
+  section.dataset.allFindings = JSON.stringify(enriched);
   filterFindings('all');
 }
 
@@ -661,12 +747,11 @@ function filterFindings(severity) {
   const tbody = document.getElementById('findingsBody');
   const raw = section && section.dataset.allFindings;
 
-  // Update active filter button
   document.querySelectorAll('#findingsFilterBar .filter-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.sev === severity);
   });
 
-  if (!raw) return;
+  if (!raw || !tbody) return;
 
   let items;
   try { items = JSON.parse(raw); } catch(e) { return; }
@@ -676,25 +761,96 @@ function filterFindings(severity) {
   }
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="empty-row">No findings match this severity filter</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">No findings match this filter</td></tr>';
     return;
   }
 
   tbody.innerHTML = items.map(f => {
     const sevClass = `badge-${(f.severity || 'unknown').toLowerCase()}`;
-    const sevLabel = (f.severity || 'unknown').toLowerCase();
+    const actionClass = f._action === 'Review immediately' ? 'sev-critical' :
+      f._action === 'Check lifecycle scripts' ? 'sev-high' : 'sev-medium';
     return `<tr class="finding-row">
       <td><span class="badge ${sevClass}">${esc(f.severity)}</span></td>
-      <td style="font-family:monospace;font-size:0.75rem;">${esc(f.catalog_id)}</td>
-      <td>${esc(f.catalog_name)}</td>
       <td><span class="badge badge-${f.ecosystem}">${esc(f.ecosystem)}</span></td>
       <td><strong>${esc(f.package_name)}</strong></td>
       <td>${esc(f.version)}</td>
-      <td style="font-style:italic;color:var(--text-dim);">${esc(f.evidence)}</td>
-      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;" title="${esc(f.source_file)}">${esc(f.source_file)}</td>
-      <td class="conf-${f.confidence}">${esc(f.confidence)}</td>
+      <td style="font-family:monospace;font-size:0.75rem;">${esc(f.catalog_id)}</td>
+      <td style="font-style:italic;color:var(--text-dim);font-size:0.75rem;">${esc(f.evidence)}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:0.75rem;" title="${esc(f.source_file)}">${esc(f.source_file)}</td>
+      <td class="${actionClass}" style="font-weight:500;font-size:0.75rem;">${esc(f._action)}</td>
     </tr>`;
   }).join('');
+}
+
+function updateActionGuide() {
+  /* Update the What-should-I-do-next panel based on available data. */
+  const section = document.getElementById('actionGuide');
+  const content = document.getElementById('actionGuideContent');
+  if (!section || !content) return;
+
+  section.style.display = 'block';
+
+  if (findings.length > 0) {
+    const crit = findings.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+    const high = findings.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+    content.innerHTML = `
+      <p><strong>${findings.length} potential exposure(s) detected</strong> (${crit} critical, ${high} high).</p>
+      <ol style="margin:8px 0 0 16px;">
+        <li>Review <strong>critical and high</strong> severity findings first.</li>
+        <li>Check whether each matched package is a <strong>direct or transitive</strong> dependency.</li>
+        <li>Review <strong>install scope</strong> — global/user installs affect more than project-local ones.</li>
+        <li>Check for <strong>lifecycle scripts</strong> — they increase the need for review.</li>
+        <li>Open the <strong>source file</strong> shown in the finding to verify context.</li>
+        <li>Confirm whether the package/version is <strong>still present</strong> on the system.</li>
+        <li><strong>Refresh threat intel</strong> and rerun the scan before closing.</li>
+      </ol>`;
+  } else if (packages.length > 0) {
+    content.innerHTML = `
+      <p>This snapshot contains inventory records but <strong>no findings</strong>.</p>
+      <ol style="margin:8px 0 0 16px;">
+        <li>Confirm the scan was run with <code>--exposure-catalog</code>.</li>
+        <li><strong>Refresh threat intel</strong>: <code>bumblebee intel refresh --output threat_intel/osv-malicious.json</code></li>
+        <li>Rerun: <code>bumblebee scan --profile baseline --exposure-catalog ./threat_intel --view</code></li>
+      </ol>`;
+  } else {
+    section.style.display = 'none';
+  }
+}
+
+function updateIntelStatus() {
+  /* Show threat-intel refresh metadata if available in the data. */
+  const section = document.getElementById('intelStatusSection');
+  const content = document.getElementById('intelStatusContent');
+  if (!section || !content) return;
+
+  // Check if metadata is available (from catalog or embedded in records)
+  let meta = null;
+  for (const r of allRecords) {
+    if (r.record_type === 'scan_summary' && r._intel_meta) {
+      meta = r._intel_meta;
+      break;
+    }
+  }
+
+  if (meta) {
+    section.style.display = 'block';
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px;">
+        <span style="font-weight:500;">Source:</span><span>${esc(meta.source || 'N/A')}</span>
+        <span style="font-weight:500;">Generated:</span><span>${esc(meta.generated_at || 'N/A')}</span>
+        <span style="font-weight:500;">Revision:</span><span>${esc(meta.source_revision || 'N/A')}</span>
+        <span style="font-weight:500;">Records processed:</span><span>${(meta.records_processed || 0).toLocaleString()}</span>
+        <span style="font-weight:500;">Entries emitted:</span><span>${meta.entries_emitted || 0}</span>
+        <span style="font-weight:500;">Records skipped:</span><span>${meta.records_skipped || 0}</span>
+        ${meta.skip_reasons ? `<span style="font-weight:500;">Skip reasons:</span><span>${esc(JSON.stringify(meta.skip_reasons))}</span>` : ''}
+      </div>`;
+  } else {
+    section.style.display = 'block';
+    content.innerHTML = `
+      <p style="color:var(--text-dim);">Threat-intel refresh metadata is not available in this snapshot.</p>
+      <p style="font-size:0.8rem;">Refresh the local catalog, then rerun the scan:</p>
+      <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.75rem;margin-top:4px;">bumblebee intel refresh --output threat_intel/osv-malicious.json</pre>`;
+  }
 }
 
 function buildTabs() {
@@ -774,16 +930,35 @@ function renderTable() {
     <tr id="${detailId}" style="display:none;">
       <td colspan="6" style="padding:8px 12px 12px 40px;background:var(--surface2);font-size:0.78rem;color:var(--text-dim);">
         <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 16px;">
+          ${(() => {
+            // Find matching finding for this package
+            const finding = findings.find(f =>
+              f.ecosystem === p.ecosystem &&
+              f.normalized_name === p.normalized_name &&
+              f.version === p.version
+            );
+            if (finding) {
+              const sevClass = `badge-${(finding.severity || '').toLowerCase()}`;
+              return `<span style="font-weight:500;color:var(--red);">Potential Exposure:</span><span style="color:var(--red);">YES</span>
+              <span style="font-weight:500;">Severity:</span><span><span class="badge ${sevClass}">${esc(finding.severity)}</span></span>
+              <span style="font-weight:500;">Catalog:</span><span>${esc(finding.catalog_id)} — ${esc(finding.catalog_name)}</span>
+              <span style="font-weight:500;">Evidence:</span><span style="font-style:italic;">${esc(finding.evidence)}</span>`;
+            }
+            return `<span style="font-weight:500;color:var(--green);">Potential Exposure:</span><span style="color:var(--text-dim);">No catalog match in this snapshot</span>`;
+          })()}
+          <span style="font-weight:500;color:var(--yellow);margin-top:4px;">Traits:</span><span style="margin-top:4px;"></span>
+          ${p.direct_dependency !== undefined ? `<span style="font-weight:500;">Direct Dep:</span><span>${p.direct_dependency ? 'Yes — trait' : 'No — transitive'}</span>` : ''}
+          ${p.install_scope ? `<span style="font-weight:500;">Install Scope:</span><span>${esc(p.install_scope)} — trait</span>` : ''}
+          ${p.has_lifecycle_scripts ? `<span style="font-weight:500;color:var(--orange);">Lifecycle Scripts:</span><span style="color:var(--orange);">Present — trait</span>` : ''}
+          <span style="font-weight:500;margin-top:4px;">Identity:</span><span style="margin-top:4px;"></span>
           <span style="font-weight:500;">Record ID:</span><span style="word-break:break-all;">${esc(p.record_id || '-')}</span>
           <span style="font-weight:500;">Ecosystem:</span><span>${esc(p.ecosystem || '-')}</span>
-          <span style="font-weight:500;">Source File:</span><span>${esc(p.source_file || '-')}</span>
-          <span style="font-weight:500;">Source Type:</span><span>${esc(p.source_type || '-')}</span>
           <span style="font-weight:500;">Package Manager:</span><span>${esc(p.package_manager || '-')}</span>
           <span style="font-weight:500;">Root Kind:</span><span>${esc(p.root_kind || '-')}</span>
-          <span style="font-weight:500;">Confidence:</span><span class="${confClass}">${esc(p.confidence || '-')}</span>
-          ${p.install_scope ? `<span style="font-weight:500;">Install Scope:</span><span>${esc(p.install_scope)}</span>` : ''}
-          ${p.direct_dependency !== undefined ? `<span style="font-weight:500;">Direct Dep:</span><span>${p.direct_dependency}</span>` : ''}
-          ${p.has_lifecycle_scripts ? `<span style="font-weight:500;color:var(--orange);">Lifecycle Scripts:</span><span style="color:var(--orange);">true</span>` : ''}
+          <span style="font-weight:500;">Confidence:</span><span class="${confClass}">${esc(p.confidence || '-')} — trait</span>
+          <span style="font-weight:500;margin-top:4px;">Source:</span><span style="margin-top:4px;"></span>
+          <span style="font-weight:500;">Source File:</span><span>${esc(p.source_file || '-')}</span>
+          <span style="font-weight:500;">Source Type:</span><span>${esc(p.source_type || '-')}</span>
         </div>
       </td>
     </tr>`;

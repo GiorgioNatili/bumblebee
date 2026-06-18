@@ -193,14 +193,17 @@ additional files needed.
 
 | Component | Description |
 |---|---|
-| **Summary cards** | Total packages, total findings (critical/high/medium/low), largest ecosystem, confidence counts, direct dependencies, lifecycle scripts |
+| **Summary cards** | Total packages, total findings (critical/high/medium/low), largest ecosystem, confidence counts, direct dependencies, lifecycle scripts. Cards show helpful subtext (e.g. "No catalog matches", "Trait — review when paired with exposure") |
+| **Explainer panel** | "What am I looking at?" — separates Inventory, Traits, Potential Exposures, and Evidence |
+| **Action guide** | "What should I do next?" — adaptive triage steps based on available data |
 | **Ecosystem bars** | Inline CSS bar chart showing package distribution by ecosystem (no CDN) |
-| **Findings table** | Severity-filterable table with catalog ID, catalog name, ecosystem, package name, version, evidence, source path, confidence |
+| **Findings table** | Severity-filterable (critical/high/medium/low/all) with ecosystem, package, version, catalog ID, evidence, source path, and **recommended action** (e.g. "Review immediately", "Check lifecycle scripts") |
+| **Threat-intel status** | Shows catalog source, generated timestamp, records processed/emitted/skipped when available |
 | **Ecosystem tabs** | Filter the package table to a single ecosystem |
 | **Search box** | Filter packages by name, version, or source path |
-| **Package table** | Sortable columns (ecosystem, package name, version, confidence, source type, path) |
-| **Expandable details** | Click ▶ on any row to reveal: record ID, source file, package manager, root kind, install scope, direct dependency flag, lifecycle scripts |
+| **Package table** | Sortable columns (ecosystem, package name, version, confidence, source type, path). Expandable rows show: potential exposure status, severity and catalog info (if matched), traits labeled with "— trait", identity fields, source info |
 | **Raw data view** | Hidden by default; click "Show" to see the full embedded NDJSON |
+| **Debug details** | Collapsible section (hidden by default), auto-expands on error |
 
 #### Manual loading (fallback)
 
