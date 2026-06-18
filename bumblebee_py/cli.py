@@ -44,7 +44,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return _run_scan(rest)
     elif subcommand == "roots":
         return _run_roots(rest)
-    elif subcommand == "intel":
+    elif subcommand in ("intel", "catalog"):
         return _run_intel(rest)
     elif subcommand in ("version", "--version", "-version"):
         print(bversion.version_string())
@@ -82,12 +82,12 @@ bumblebee — endpoint package inventory collector
 usage:
   bumblebee scan     [flags]   run a scan and emit NDJSON records
   bumblebee roots    [flags]   print the resolved scan roots and exit
-  bumblebee intel    <command> [flags]   threat-intel operations
+  bumblebee catalog  <command> [flags]   catalog operations (refresh sources)
   bumblebee selftest [flags]   scan embedded fixtures and verify detection
   bumblebee version            print version and exit
 
 run "bumblebee scan --help" for scan flags, including --profile.
-run "bumblebee intel --help" for intel commands.
+run "bumblebee catalog --help" for catalog commands.
 """
 
 
@@ -431,7 +431,7 @@ def _add_scan_flags(parser: argparse.ArgumentParser):
     parser.add_argument("--concurrency", type=int, default=4,
                         help="number of concurrent file parsers")
 
-    parser.add_argument("--exposure-catalog", default="",
+    parser.add_argument("--exposure-catalog", "--catalogs", default="",
                         help="path to a JSON exposure catalog file or directory")
     parser.add_argument("--max-catalog-size", type=int, default=64 * 1024 * 1024,
                         help="max bytes per catalog file")

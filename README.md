@@ -227,7 +227,7 @@ The dashboard is bundled with the package at
 | Dashboard is blank | Embedded data missing or empty | Run with `--view` so data is injected automatically |
 | Dashboard shows "could not be parsed" | The embedded data is not valid NDJSON/JSON | Check the debug panel (shown above the dashboard) for parse errors |
 | Dashboard shows "no packages found" | Data contains non-package records only | The data may contain only diagnostic or summary records |
-| Dashboard shows no findings | No catalog match, or scan was run without `--exposure-catalog` | Run with `--exposure-catalog ./threat_intel` |
+| Dashboard shows no findings | No catalog match, or scan was run without `--catalogs (or legacy --exposure-catalog)` | Run with `--catalogs (or legacy --exposure-catalog) ./catalogs` |
 | Drag-and-drop doesn't load | File is not `.jsonl` / `.ndjson` / `.json` | The file picker accepts these extensions |
 | Debug panel shows errors | See browser console for details | Open DevTools (F12) → Console for full error logs |
 
@@ -259,7 +259,7 @@ receivers can keep populations separate.
 |---|---|---|
 | `baseline` | Common global/user package roots, language toolchains, editor extensions, browser extensions, and MCP configs. | Recurring lightweight inventory via an external runner. |
 | `project` | Configured development directories, such as `~/code`, `~/src`, or `~/work`. | Recurring inventory for known project workspaces. |
-| `deep` | Explicit `--root` paths, including broad roots like `$HOME`. | On-demand incident or campaign checks, usually with `--ecosystem`, `--exposure-catalog`, and `--findings-only`. |
+| `deep` | Explicit `--root` paths, including broad roots like `$HOME`. | On-demand incident or campaign checks, usually with `--ecosystem`, `--catalogs (or legacy --exposure-catalog)`, and `--findings-only`. |
 
 `baseline` and `project` refuse bare-home roots; only `deep` walks them.
 
@@ -282,7 +282,7 @@ bumblebee scan --profile baseline \
 # On-demand exposure scan against a published advisory.
 bumblebee scan --profile deep \
   --root "$HOME" \
-  --exposure-catalog ./catalog.json \
+  --catalogs (or legacy --exposure-catalog) ./catalog.json \
   --max-duration 600
 ```
 
@@ -295,9 +295,9 @@ bumblebee roots --profile baseline
 
 `--root` is a filesystem path to scan; repeatable, required for `deep`,
 optional for the other profiles. `--ecosystem` is repeatable and
-comma-separated. `--exposure-catalog` accepts a JSON file or a directory
+comma-separated. `--catalogs (or legacy --exposure-catalog)` accepts a JSON file or a directory
 of `*.json` catalogs (merged non-recursively, all files must share
-`schema_version`). `--findings-only` requires `--exposure-catalog` and
+`schema_version`). `--findings-only` requires `--catalogs (or legacy --exposure-catalog)` and
 suppresses package records while keeping findings. `--view` runs the
 scan, captures the output, embeds it into a self-contained HTML dashboard,
 and opens it in your browser. `bumblebee scan --help`
@@ -313,7 +313,7 @@ name + version) — package-presence evidence, not runtime forensic proof.
 # Baseline scan with catalog matching, saved to file.
 bumblebee scan \
   --profile baseline \
-  --exposure-catalog ./threat_intel \
+  --catalogs (or legacy --exposure-catalog) ./catalogs \
   --output file \
   --output-file ~/.bumblebee/snapshots/baseline-$(date +%F).ndjson
 
@@ -321,7 +321,7 @@ bumblebee scan \
 bumblebee scan \
   --profile deep \
   --root "$HOME" \
-  --exposure-catalog ./threat_intel \
+  --catalogs (or legacy --exposure-catalog) ./catalogs \
   --findings-only \
   --output file \
   --output-file ~/.bumblebee/snapshots/findings-$(date +%F).ndjson
@@ -331,20 +331,20 @@ Matching produces `finding` records with severity, catalog metadata, and
 evidence text. These records are rendered in the dashboard's **Findings**
 section (see [Browser dashboard](#browser-dashboard)).
 
-### Threat-intel refresh
+### Catalog refresh
 
 Bumblebee can fetch OSV malicious-package data and convert it to a local
 exposure catalog:
 
 ```bash
 # Fetch from the default OpenSSF source and write a catalog file.
-bumblebee intel refresh --output threat_intel/osv-malicious.json
+bumblebee catalog refresh --output catalogs/malicious/openssf.json
 
 # Dry-run with verbose output (no file written).
-bumblebee intel refresh --dry-run --verbose
+bumblebee catalog refresh --dry-run --verbose
 
 # Refresh from a local OSV dump (offline).
-bumblebee intel refresh --source ./osv-malicious.json --output threat_intel/refresh.json
+bumblebee catalog refresh --source ./osv-malicious.json --output catalogs/custom.json
 ```
 
 Supported ecosystems: npm, PyPI, Go, RubyGems, Packagist, Homebrew.
@@ -360,27 +360,27 @@ the output metadata.
     findings-2026-06-17.ndjson
 ```
 
-### Daily snapshots with refreshed threat intelligence
+### Daily snapshots with refreshed catalogs
 
 For ongoing monitoring, set up a daily workflow:
 
 ```bash
-# 1. Refresh threat intel.
-bumblebee intel refresh \
-  --output ~/.bumblebee/threat_intel/osv-malicious.json \
+# 1. Refresh catalogs.
+bumblebee catalog refresh \
+  --output ~/.bumblebee/catalogs/malicious/openssf.json \
   --verbose
 
 # 2. Run a daily inventory snapshot with catalog matching.
 bumblebee scan \
   --profile baseline \
-  --exposure-catalog ~/.bumblebee/threat_intel \
+  --catalogs (or legacy --exposure-catalog) ~/.bumblebee/catalogs \
   --output file \
   --output-file ~/.bumblebee/snapshots/baseline-$(date +%F).ndjson
 
 # 3 (optional). Findings-only snapshot.
 bumblebee scan \
   --profile baseline \
-  --exposure-catalog ~/.bumblebee/threat_intel \
+  --catalogs (or legacy --exposure-catalog) ~/.bumblebee/catalogs \
   --findings-only \
   --output file \
   --output-file ~/.bumblebee/snapshots/findings-$(date +%F).ndjson
@@ -391,9 +391,9 @@ bumblebee scan \
 ```cron
 # Run daily at 6 AM.
 0 6 * * * cd /path/to/bumblebee && \
-  bumblebee intel refresh --output ~/.bumblebee/threat_intel/osv-malicious.json && \
+  bumblebee catalog refresh --output ~/.bumblebee/catalogs/malicious/openssf.json && \
   bumblebee scan --profile baseline \
-    --exposure-catalog ~/.bumblebee/threat_intel \
+    --catalogs (or legacy --exposure-catalog) ~/.bumblebee/catalogs \
     --output file \
     --output-file ~/.bumblebee/snapshots/baseline-$(date +\%F).ndjson
 ```
@@ -520,7 +520,7 @@ Minimal JSON, exact `(ecosystem, name, version)` matching only:
 The catalog must be a JSON object with `schema_version` and `entries`
 keys. Bare top-level arrays are rejected. Unsupported future
 `schema_version` values are rejected. Multiple catalog files can be
-loaded together by pointing `--exposure-catalog` at a directory; see
+loaded together by pointing `--catalogs (or legacy --exposure-catalog)` at a directory; see
 the flag description above.
 
 ### Sample exposure catalogs
@@ -600,7 +600,7 @@ evidence**, not runtime forensic proof.
 | Statement | Supported by Bumblebee? |
 |---|---|
 | "This package/version was found on this machine" | ✅ Yes (exact-match scanning of on-disk metadata) |
-| "This package/version matches a known-bad entry in the local catalog" | ✅ Yes (if `--exposure-catalog` was used) |
+| "This package/version matches a known-bad entry in the local catalog" | ✅ Yes (if `--catalogs (or legacy --exposure-catalog)` was used) |
 | "This machine is compromised" | ❌ No (Bumblebee does not execute packages or collect runtime evidence) |
 | "This finding is a true positive" | ❌ No (catalogs may contain false positives; review each finding) |
 
@@ -610,7 +610,7 @@ What to do with a finding:
 2. **Check install context** — is it a direct dependency (`direct_dependency`)?
    Is it in a project (`install_scope: project`) or globally installed (`install_scope: global`)?
 3. **Check lifecycle scripts** — does the package have install-time scripts?
-4. **Refresh threat intel** — run `bumblebee intel refresh` to get the latest
+4. **Refresh threat intel** — run `bumblebee catalog refresh` to get the latest
    catalog, then rescan.
 5. **Correlate with other tools** — Bumblebee findings are a triage signal,
    not a verdict.
@@ -636,7 +636,7 @@ Example finding:
 ### Malicious packages vs general vulnerabilities
 
 Bumblebee's exposure matching is catalog-driven. The default catalog
-generated by `bumblebee intel refresh` contains **malicious-package records**
+generated by `bumblebee catalog refresh` contains **malicious-package records**
 from the OpenSSF dataset — not general CVE advisories.
 
 > ⚠️ Zero findings does not mean zero vulnerabilities. It only means
@@ -665,12 +665,12 @@ bumblebee --help
 bumblebee scan --help
 
 # Threat-intel refresh.
-bumblebee intel refresh --help
+bumblebee catalog refresh --help
 
 # Smoke test all major combinations.
-bumblebee scan --profile baseline --exposure-catalog ./threat_intel --findings-only --max-duration 60
-bumblebee scan --profile baseline --exposure-catalog ./threat_intel --view --max-duration 60
-bumblebee intel refresh --dry-run --verbose
+bumblebee scan --profile baseline --catalogs (or legacy --exposure-catalog) ./catalogs --findings-only --max-duration 60
+bumblebee scan --profile baseline --catalogs (or legacy --exposure-catalog) ./catalogs --view --max-duration 60
+bumblebee catalog refresh --dry-run --verbose
 ```
 
 The [`threat_intel/`](threat_intel/) directory holds maintained exposure

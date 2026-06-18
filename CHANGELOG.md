@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 (2026-06-18)
+
+### Changed
+
+- **Catalog rename** — `bumblebee catalog refresh` and `--catalogs` are now
+  the preferred commands. `bumblebee intel refresh` and `--exposure-catalog`
+  remain as deprecated aliases.
+- **New catalog layout** — `catalogs/malicious/`, `catalogs/vulnerabilities/`,
+  `catalogs/overlays/`.
+- **New module** — `bumblebee_py/catalogs/` with `intel/` as compat wrapper.
+- **New docs** — `docs/catalog-sources.md`, `docs/migration-to-catalogs.md`,
+  `catalogs/README.md`. Terminology: Source, Catalog, Catalog type, Finding,
+  Overlay.
+
 ## 0.5.0 (2026-06-17)
 
 ### Added

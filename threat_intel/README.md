@@ -1,6 +1,10 @@
-# Threat Intelligence Exposure Catalogs
+# Threat Intelligence Exposure Catalogs (deprecated)
 
-Maintained exposure catalogs for recent supply-chain campaigns, built from
+> ⚠️ **Deprecated.** This directory has been renamed to `catalogs/`.
+> See [catalogs/README.md](../catalogs/README.md) and
+> [docs/migration-to-catalogs.md](../docs/migration-to-catalogs.md).
+
+Maintained exposure catalogs for recent supply-chain campaigns. built from
 public threat-intelligence reporting with
 [Perplexity Computer](https://www.perplexity.ai/computer) and updated via
 PRs as fresh campaigns are reported.
