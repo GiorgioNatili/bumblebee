@@ -3,31 +3,42 @@ OSV malicious-package data retrieval and conversion.
 
 Fetches the OpenSSF malicious-packages dataset and converts OSV-format
 records to Bumblebee exposure-catalog entries.
+
+The OSSF repo stores data as individual JSON files per ecosystem:
+  osv/malicious/{ecosystem}/{org}/{file}.json
+
+The default source fetches per-ecosystem using the GitHub API to list
+files, then retrieves each one.
 """
 
 import json
 import os
 import sys
-import time
+import urllib.request
+import urllib.error
 from typing import Optional
 
-if sys.version_info >= (3, 11):
-    from urllib.request import urlopen, Request
-    from urllib.error import URLError
-else:
-    from urllib2 import urlopen, Request  # type: ignore  # pragma: no cover
-    from urllib2 import URLError  # type: ignore  # pragma: no cover
 
+# Base URL for the OSSF malicious-packages repo
+OSSF_API_BASE = "https://api.github.com/repos/ossf/malicious-packages"
+OSSF_RAW_BASE = "https://raw.githubusercontent.com/ossf/malicious-packages/main"
 
-# Default upstream source for OSV malicious-packages data
-DEFAULT_SOURCE = (
-    "https://raw.githubusercontent.com/"
-    "ossf/malicious-packages/main/"
-    "osv-malicious.json"
-)
+# Default: fetch from ecosystem directories
+DEFAULT_SOURCE = "osv-malicious"  # special token meaning "fetch from OSSF per-ecosystem dirs"
+
+# Supported OSSF ecosystems (directory names under osv/malicious/)
+OSSF_ECOSYSTEM_DIRS = {
+    "npm": "npm",
+    "pypi": "pypi",
+    "go": "go",
+    "rubygems": "rubygems",
+    "packagist": "packagist",
+    "homebrew": "homebrew",
+}
 
 # Ecosystem mapping: OSV ecosystem → Bumblebee ecosystem
 ECOSYSTEM_MAP = {
+    "npm": "npm",
     "npm": "npm",
     "PyPI": "pypi",
     "Go": "go",
@@ -45,11 +56,14 @@ SCANNED_ECOSYSTEMS = {"npm", "pypi", "go", "rubygems", "packagist", "homebrew"}
 
 
 def fetch_osv_data(source: str, timeout: int = 60) -> list[dict]:
-    """Fetch OSV malicious-package data from a URL or local path.
+    """Fetch OSV malicious-package data from a URL, local path, or ecosystem dirs.
+
+    If *source* is the special token ``"osv-malicious"``, fetches per-ecosystem
+    from the OSSF malicious-packages repo by listing files via the GitHub API.
 
     Args:
-        source: URL or local file path.
-        timeout: Request timeout in seconds (URL only).
+        source: URL, local file path, or ``"osv-malicious"`` for per-ecosystem fetch.
+        timeout: Request timeout in seconds.
 
     Returns:
         List of OSV entry dicts.
@@ -58,15 +72,19 @@ def fetch_osv_data(source: str, timeout: int = 60) -> list[dict]:
         ValueError: If the source cannot be read or parsed.
         OSError: If a local file cannot be read.
     """
+    # Special handling for per-ecosystem fetch
+    if source == "osv-malicious":
+        return _fetch_osv_from_ecosystem_dirs(timeout)
+
     if os.path.isfile(source):
         with open(source, "rb") as f:
             raw = f.read()
     else:
         try:
-            req = Request(source)
-            resp = urlopen(req, timeout=timeout)
+            req = urllib.request.Request(source, headers={"User-Agent": "bumblebee/0.4"})
+            resp = urllib.request.urlopen(req, timeout=timeout)
             raw = resp.read()
-        except URLError as e:
+        except urllib.error.URLError as e:
             raise ValueError(f"network error fetching {source}: {e}") from e
         except Exception as e:
             raise ValueError(f"failed to fetch {source}: {e}") from e
@@ -85,6 +103,60 @@ def fetch_osv_data(source: str, timeout: int = 60) -> list[dict]:
         raise ValueError(f"expected a list of OSV entries, got {type(entries).__name__}")
 
     return entries
+
+
+def _fetch_osv_from_ecosystem_dirs(timeout: int = 120) -> list[dict]:
+    """Fetch OSV malicious-package entries from per-ecosystem directories.
+
+    Uses the GitHub API to list files in each ecosystem directory under
+    ``osv/malicious/<ecosystem>/``, then fetches each JSON file.
+
+    Returns a combined list of OSV entry dicts.
+    """
+    import urllib.request as _req
+
+    all_entries = []
+
+    for eco_name, eco_dir in OSSF_ECOSYSTEM_DIRS.items():
+        # List files via GitHub API (recursive tree)
+        tree_url = f"{OSSF_API_BASE}/git/trees/main?recursive=1"
+        try:
+            tree_req = _req.Request(tree_url, headers={"User-Agent": "bumblebee/0.4"})
+            tree_resp = _req.urlopen(tree_req, timeout=timeout)
+            tree_data = json.loads(tree_resp.read())
+        except Exception:
+            # Skip this ecosystem if we can't list it
+            continue
+
+        if "tree" in tree_data:
+            prefix = f"osv/malicious/{eco_dir}/"
+            eco_files = [
+                item for item in tree_data["tree"]
+                if item["type"] == "blob"
+                and item["path"].startswith(prefix)
+                and item["path"].endswith(".json")
+                and "/" in item["path"][len(prefix):]
+            ]
+            for f in eco_files[:500]:
+                if len(all_entries) >= 2000:
+                    break
+                url = f"{OSSF_RAW_BASE}/{f['path']}"
+                try:
+                    file_req = _req.Request(url, headers={"User-Agent": "bumblebee/0.4"})
+                    file_resp = _req.urlopen(file_req, timeout=timeout)
+                    entry = json.loads(file_resp.read())
+                    all_entries.append(entry)
+                except Exception:
+                    pass
+
+    if not all_entries:
+        raise ValueError(
+            "no OSV entries could be fetched from the upstream repository. "
+            "The repository structure may have changed. "
+            "Try using --source with a local OSV dump file."
+        )
+
+    return all_entries
 
 
 def convert_osv_entry(entry: dict) -> Optional[dict]:

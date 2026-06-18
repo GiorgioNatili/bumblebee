@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1 (2026-06-17)
+
+### Fixed
+
+- **Threat-intel refresh default source URL** — The OpenSSF malicious-packages
+  repo removed the consolidated ``osv-malicious.json`` file. The default source
+  now fetches per-ecosystem from ``osv/malicious/{ecosystem}/`` directories
+  using the GitHub API, with a cap of 500 files per ecosystem and 2000 entries
+  total. Local ``--source`` files and URLs still work as before.
+
 ## 0.4.0 (2026-06-17)
 
 ### Added

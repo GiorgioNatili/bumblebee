@@ -34,8 +34,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument(
         "--source", default="",
-        help="Source URL or local file path for OSV data "
-             f"(default: {_osv.DEFAULT_SOURCE})",
+        help="Source URL, local file path, or 'osv-malicious' for OSSF per-ecosystem "
+             f"fetch (default: per-ecosystem fetch from OSSF malicious-packages repo)",
     )
     parser.add_argument(
         "--dry-run", action="store_true", default=False,
@@ -49,10 +49,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     opts = parser.parse_args(argv)
 
     source = opts.source or _osv.DEFAULT_SOURCE
-    is_url = not os.path.isfile(source)
+    is_ecosystem_fetch = (source == "osv-malicious")
+    is_url = not is_ecosystem_fetch and not os.path.isfile(source)
 
     if opts.verbose:
-        print(f"[intel] source: {source}", file=sys.stderr)
+        if is_ecosystem_fetch:
+            print(f"[intel] source: OSSF malicious-packages (per-ecosystem fetch)", file=sys.stderr)
+        else:
+            print(f"[intel] source: {source}", file=sys.stderr)
         if is_url:
             print(f"[intel] fetching from upstream...", file=sys.stderr)
 
